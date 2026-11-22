@@ -37,9 +37,11 @@ htmlcov/
 
 # Database files
 *.db
+*.db.bak
 *.sqlite
 *.sqlite3
 civicpulse.db
+civicpulse.db.bak
 
 # User Uploads (keep directory structure)
 uploads/*
