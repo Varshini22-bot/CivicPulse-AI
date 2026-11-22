@@ -43,6 +43,21 @@ def test_duplicate_service_haversine():
     dist = DuplicateService.haversine_distance(12.9344, 77.6256, 12.9354, 77.6256)
     assert 105.0 <= dist <= 115.0
 
+def test_duplicate_service_bitwise_hamming():
+    # Exact match: hamming distance 0, similarity 1.0
+    h1 = "f0f0" * 16  # 64 hex chars = 256 bits
+    assert DuplicateService.hamming_distance_bits(h1, h1) == 0
+    assert DuplicateService.bitwise_hash_similarity(h1, h1) == 1.0
+
+    # Flip 4 bits (e.g. 'f' -> 1111 vs 'e' -> 1110)
+    h2 = "e0f0" + ("f0f0" * 15)
+    assert DuplicateService.hamming_distance_bits(h1, h2) == 1
+    assert DuplicateService.bitwise_hash_similarity(h1, h2) == (1.0 - 1.0 / 256.0)
+
+    # Missing hash must return None, not 0.5
+    assert DuplicateService.bitwise_hash_similarity(None, h1) is None
+    assert DuplicateService.bitwise_hash_similarity(h1, "") is None
+
 def test_model_evaluation_pipeline():
     eval_metrics = ModelEvaluator.compute_evaluation_metrics()
     assert eval_metrics["evaluation_status"] == "unevaluated"

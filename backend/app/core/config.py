@@ -33,7 +33,17 @@ class Settings(BaseSettings):
     WEIGHT_AGE: float = 0.10
     
     # Duplicate Detection Parameters
-    DUPLICATE_RADIUS_METERS: float = 100.0  # Within 100 meters
+    DUPLICATE_RADIUS_METERS: float = 100.0  # Default fallback radius
+    DUPLICATE_CATEGORY_RADII: dict = {
+        "pothole": 25.0,                 # Localized road crater
+        "road_damage": 35.0,             # Longitudinal cracking
+        "garbage_overflow": 30.0,        # Waste bin location
+        "illegal_dumping": 40.0,         # Uncontained debris pile
+        "water_leakage": 75.0,           # Pipe segment leak
+        "blocked_drain": 60.0,           # Silted drain segment
+        "broken_streetlight": 80.0,      # Continuous streetlight fixture
+        "damaged_infrastructure": 40.0   # Sidewalk/railing defect
+    }
     DUPLICATE_TIME_WINDOW_DAYS: int = 30     # Within 30 days
     DUPLICATE_SCORE_THRESHOLD: float = 0.65  # 65% composite match
     
