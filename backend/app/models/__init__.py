@@ -69,6 +69,21 @@ class Category(Base):
     default_department = relationship("Department", back_populates="categories")
     reports = relationship("Report", back_populates="category", foreign_keys="Report.category_id")
 
+class RoadSegment(Base):
+    __tablename__ = "road_segments"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    osm_id = Column(String(100), index=True, nullable=True)
+    name = Column(String(255), nullable=False)
+    highway_type = Column(String(50), default="residential", nullable=False)  # primary, secondary, trunk, residential
+    ward = Column(String(100), nullable=True)
+    geometry = Column(JSON, nullable=False)  # GeoJSON LineString coordinates [[lon, lat], ...]
+    length_meters = Column(Float, default=100.0, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    reports = relationship("Report", back_populates="road_segment")
+
+
 class Report(Base):
     __tablename__ = "reports"
     
@@ -85,6 +100,7 @@ class Report(Base):
     longitude = Column(Float, nullable=False, index=True)
     address = Column(String(255), nullable=True)
     area = Column(String(100), nullable=True, index=True)  # Ward or Neighborhood (e.g. "Koramangala")
+    road_segment_id = Column(String(36), ForeignKey("road_segments.id"), nullable=True, index=True)
     
     status = Column(String(50), default="Submitted", index=True, nullable=False)
     # Status transitions: Submitted -> Under Review -> Verified -> Assigned -> In Progress -> Resolved / Rejected
@@ -116,8 +132,10 @@ class Report(Base):
     citizen = relationship("User", back_populates="reports", foreign_keys=[citizen_id])
     category = relationship("Category", back_populates="reports", foreign_keys=[category_id])
     verified_category = relationship("Category", foreign_keys=[verified_category_id])
+    road_segment = relationship("RoadSegment", back_populates="reports")
     
     ai_prediction = relationship("AIPrediction", back_populates="report", uselist=False, cascade="all, delete-orphan")
+    embedding_record = relationship("ReportEmbedding", back_populates="report", uselist=False, cascade="all, delete-orphan")
     priority_record = relationship("PriorityScore", back_populates="report", uselist=False, cascade="all, delete-orphan")
     assignments = relationship("Assignment", back_populates="report", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="report", cascade="all, delete-orphan")
@@ -173,6 +191,19 @@ class PriorityScore(Base):
     
     report = relationship("Report", back_populates="priority_record")
 
+class ReportEmbedding(Base):
+    __tablename__ = "report_embeddings"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    report_id = Column(String(36), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    embedding = Column(JSON, nullable=False)  # 512-dim float array
+    model_name = Column(String(100), default="openclip-vit-b-32", nullable=False)
+    dimension = Column(Integer, default=512, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    report = relationship("Report", back_populates="embedding_record")
+
+
 class DuplicateCandidate(Base):
     __tablename__ = "duplicate_candidates"
     
@@ -184,10 +215,13 @@ class DuplicateCandidate(Base):
     category_match = Column(Boolean, default=True)
     time_diff_hours = Column(Float, nullable=False)
     visual_similarity = Column(Float, nullable=True)
+    clip_similarity = Column(Float, nullable=True)
+    phash_similarity = Column(Float, nullable=True)
     composite_score = Column(Float, nullable=False)  # 0.0 to 1.0
     
     status = Column(String(50), default="suggested")  # "suggested", "confirmed", "rejected"
     resolved_by_user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    resolution_feedback = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     

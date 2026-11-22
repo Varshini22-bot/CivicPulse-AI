@@ -430,3 +430,38 @@ All deliverables for Phase 2 have been completed, verified, and committed on git
 - **Model Card & Reports**: Fully documented in `MODEL_CARD.md` and `PHASE_2_REPORT.md`.
 - **Release**: Merged into `main`, tagged `v0.2.1`.
 
+---
+
+## 11. Phase 3: Duplicates & Geospatial Intelligence Execution & Verification
+
+All deliverables for Phase 3 have been completed, verified, and committed on git branch `phase-3-geospatial-duplicates`.
+
+### 11.1 Key Deliverables Implemented
+1. **Duplicate Detection v2 (`backend/app/services/duplicate_service.py`)**:
+   - 512-dimensional OpenCLIP `ViT-B-32` image embeddings (`EmbeddingService`).
+   - Bitwise pHash Hamming distance fallback.
+   - Spatial gate with category radius + $10\text{m}$ urban GPS accuracy margin (`GPS_ACCURACY_MARGIN_METERS`).
+   - Smooth continuous temporal decay ($e^{-\Delta t / 48\text{h}}$) and weight renormalization.
+   - Admin feedback tracking (`resolution_feedback`) logging labeled pair datasets on confirm/reject.
+2. **Database & Vector Schema (`004_add_embeddings_and_geospatial_v2.py`)**:
+   - `report_embeddings` table for 512-dim feature vectors.
+   - `road_segments` table for OpenStreetMap network representations.
+   - `road_segment_id` foreign key on `reports`.
+   - `clip_similarity`, `phash_similarity`, and `resolution_feedback` on `duplicate_candidates`.
+3. **OpenStreetMap Recurrence Detection (`backend/app/services/recurrence_service.py`)**:
+   - Curated `data/osm/bengaluru_roads.json` with OpenStreetMap ODbL attribution.
+   - Road segment snapping via perpendicular distance computation.
+   - Chronic failure corridor detection ($\ge 3$ incidents in 90 days) with civil engineering root-cause advisory recommendations.
+4. **Hotspots v2 (`backend/app/services/geospatial_service.py`)**:
+   - Hierarchical HDBSCAN clustering (`sklearn.cluster.HDBSCAN(metric="haversine")`) in spherical radians.
+   - Continuous temporal decay weighting ($e^{-\lambda \Delta t}$) with half-life $\tau_{1/2} = 14$ days.
+   - Cluster stability and probability metrics.
+5. **Municipal Dispatch Route Optimization (`backend/app/services/routing_service.py`)**:
+   - Google OR-Tools Traveling Salesperson Problem (TSP) solver minimizing truck travel distance and crew deadheading.
+6. **Empirical Evaluation Benchmark (`ml/eval/evaluate_duplicates.py`)**:
+   - Evaluated on $N=80$ balanced pairs (40 positive augmentation duplicates, 40 negative non-duplicates):
+     - Bitwise pHash: Precision 70.0% (95% CI: [47.4%, 88.9%]), Recall 35.0% (95% CI: [20.0%, 51.1%]), F1: 0.467 (95% CI: [0.292, 0.605]), comparison time 26.76 ms.
+     - OpenCLIP ViT-B/32: Precision 81.6% (95% CI: [70.8%, 92.2%]), Recall 100.0% (95% CI: [100.0%, 100.0%]), F1: 0.899 (95% CI: [0.829, 0.959]), comparison time 414.90 ms.
+7. **Test Suite Status**: **46 Passed, 1 Skipped (PostGIS Docker)** across 47 tests. Frontend build clean in 1.57s.
+8. **Release**: Merged into `main`, tagged `v0.3`. Fully documented in `PHASE_3_REPORT.md`.
+

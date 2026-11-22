@@ -198,7 +198,17 @@ class ReportService:
         db.commit()
         db.refresh(report)
 
-        # 10. Run duplicate candidate detection
+        # 10. Snap to OSM road segment
+        try:
+            from app.services.recurrence_service import RecurrenceService
+            seg, _ = RecurrenceService.snap_point_to_segment(db, report.latitude, report.longitude)
+            if seg:
+                report.road_segment_id = seg.id
+                db.commit()
+        except Exception:
+            pass
+
+        # 11. Run duplicate candidate detection v2
         DuplicateService.find_and_create_duplicate_candidates(db, report)
 
         return report

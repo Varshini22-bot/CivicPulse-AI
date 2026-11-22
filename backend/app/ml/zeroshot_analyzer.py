@@ -54,6 +54,23 @@ class ZeroShotAnalyzer(BaseAnalyzer):
         except Exception:
             self.clip_model = None
 
+    def extract_image_embedding(self, image_path: Optional[str]) -> Optional[List[float]]:
+        """
+        Extracts 512-dim L2-normalized image embedding using OpenCLIP ViT-B/32.
+        Returns None if image is missing or OpenCLIP model is not loaded.
+        """
+        if not image_path or not os.path.exists(image_path) or self.clip_model is None:
+            return None
+        try:
+            import torch
+            image = self.clip_preprocess(Image.open(image_path)).unsqueeze(0)
+            with torch.no_grad():
+                feats = self.clip_model.encode_image(image)
+                feats = feats / feats.norm(dim=-1, keepdim=True)
+                return [round(float(x), 6) for x in feats[0].cpu().numpy().tolist()]
+        except Exception:
+            return None
+
     def analyze(
         self,
         image_path: Optional[str],

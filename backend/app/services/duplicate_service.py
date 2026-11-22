@@ -4,12 +4,13 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.models import Report, DuplicateCandidate
 from app.core.config import settings
+from app.services.embedding_service import EmbeddingService
 
 class DuplicateService:
     """
-    Geospatial, temporal, semantic, and visual duplicate detection system.
-    Evaluates candidate matches and provides explainable composite match percentages
-    for municipal decision support.
+    Geospatial, temporal, semantic, and visual duplicate detection system v2.
+    Evaluates candidate matches using spatial gating (with category-specific radii and GPS accuracy margins),
+    smooth temporal decay, bitwise pHash Hamming distance, and 512-dim OpenCLIP image embeddings.
     """
 
     @staticmethod
@@ -51,10 +52,16 @@ class DuplicateService:
         return max(0.0, min(1.0, 1.0 - (dist / float(total_bits))))
 
     @classmethod
-    def is_within_category_radius(cls, distance_meters: float, category_code: str) -> bool:
+    def get_effective_radius(cls, category_code: str, include_gps_margin: bool = True) -> float:
+        """Returns category radius optionally including urban GPS accuracy margin."""
+        base_radius = settings.DUPLICATE_CATEGORY_RADII.get(category_code, settings.DUPLICATE_RADIUS_METERS)
+        return base_radius + (settings.GPS_ACCURACY_MARGIN_METERS if include_gps_margin else 0.0)
+
+    @classmethod
+    def is_within_category_radius(cls, distance_meters: float, category_code: str, include_gps_margin: bool = False) -> bool:
         """Checks if a distance is within the category-specific duplicate radius."""
-        max_radius = settings.DUPLICATE_CATEGORY_RADII.get(category_code, settings.DUPLICATE_RADIUS_METERS)
-        return distance_meters <= max_radius
+        effective_radius = cls.get_effective_radius(category_code, include_gps_margin=include_gps_margin)
+        return distance_meters <= effective_radius
 
     @classmethod
     def evaluate_duplicate_pair(
@@ -62,16 +69,17 @@ class DuplicateService:
         report_a: Report,
         report_b: Report,
         p_hash_a: Optional[str] = None,
-        p_hash_b: Optional[str] = None
+        p_hash_b: Optional[str] = None,
+        emb_a: Optional[List[float]] = None,
+        emb_b: Optional[List[float]] = None
     ) -> Dict[str, Any]:
         """
         Evaluate if report_b is a duplicate candidate of report_a.
-        Renormalizes weights when visual features are absent.
-        Enforces category-specific distance thresholds.
+        Uses spatial gate with GPS margin, smooth temporal decay,
+        CLIP embedding cosine similarity (or pHash fallback), and weight renormalization.
         """
-        # Determine category code for category-specific threshold
         cat_code = (report_a.category.code if report_a.category else None) or "default"
-        max_radius = settings.DUPLICATE_CATEGORY_RADII.get(cat_code, settings.DUPLICATE_RADIUS_METERS)
+        effective_radius = cls.get_effective_radius(cat_code)
 
         # 1. Geographic distance
         dist_meters = cls.haversine_distance(
@@ -79,11 +87,13 @@ class DuplicateService:
             report_b.latitude, report_b.longitude
         )
         
-        # Distance score: 0 to 1.0 based on category-specific radius
+        # Spatial Gate Check
+        is_within_gate = (dist_meters <= effective_radius)
+
         if dist_meters <= 10.0:
             dist_score = 1.0
-        elif dist_meters <= max_radius:
-            dist_score = max(0.0, 1.0 - (dist_meters / max_radius))
+        elif is_within_gate:
+            dist_score = max(0.0, 1.0 - (dist_meters / effective_radius))
         else:
             dist_score = 0.0
 
@@ -93,7 +103,7 @@ class DuplicateService:
         is_category_match = (cat_a == cat_b)
         category_score = 1.0 if is_category_match else 0.2
 
-        # 3. Time proximity
+        # 3. Time proximity (Smooth exponential decay: e^(-delta_t / 48h))
         time_a = report_a.created_at
         time_b = report_b.created_at
         if time_a and time_b:
@@ -110,17 +120,21 @@ class DuplicateService:
         else:
             time_score = 0.20
 
-        # 4. Visual similarity (Bitwise Hamming distance on perceptual hashes)
-        visual_similarity = cls.bitwise_hash_similarity(p_hash_a, p_hash_b)
+        # 4. Visual similarity: CLIP embedding preferred, bitwise pHash fallback
+        clip_sim = EmbeddingService.cosine_similarity(emb_a, emb_b)
+        phash_sim = cls.bitwise_hash_similarity(p_hash_a, p_hash_b)
+
+        visual_similarity = clip_sim if clip_sim is not None else phash_sim
+        visual_type = "clip_embedding" if clip_sim is not None else ("phash" if phash_sim is not None else None)
 
         # Dynamic weight renormalization:
-        # If visual hash is available: 0.45 Dist + 0.25 Cat + 0.15 Time + 0.15 Visual
-        # If visual hash is missing: renormalize across Dist, Cat, Time (total 0.85)
+        # Full features: 0.40 Dist + 0.25 Cat + 0.15 Time + 0.20 Visual = 1.0
+        # If visual missing: renormalize across Dist, Cat, Time (total 0.80)
         if visual_similarity is not None:
-            w_dist = 0.45
+            w_dist = 0.40
             w_cat = 0.25
             w_time = 0.15
-            w_vis = 0.15
+            w_vis = 0.20
             composite_score = (
                 (w_dist * dist_score) +
                 (w_cat * category_score) +
@@ -128,9 +142,8 @@ class DuplicateService:
                 (w_vis * visual_similarity)
             )
         else:
-            # Renormalize without visual component
-            base_sum = 0.45 + 0.25 + 0.15  # 0.85
-            w_dist = 0.45 / base_sum
+            base_sum = 0.40 + 0.25 + 0.15  # 0.80
+            w_dist = 0.40 / base_sum
             w_cat = 0.25 / base_sum
             w_time = 0.15 / base_sum
             composite_score = (
@@ -142,19 +155,23 @@ class DuplicateService:
         composite_score = round(min(1.0, max(0.0, composite_score)), 3)
 
         reasons = []
-        if dist_meters <= max_radius:
-            reasons.append(f"Located within category-specific radius ({dist_meters:.1f}m / {max_radius:.0f}m max).")
+        if is_within_gate:
+            reasons.append(f"Located within category radius + GPS margin ({dist_meters:.1f}m / {effective_radius:.0f}m max).")
         else:
-            reasons.append(f"Distance ({dist_meters:.1f}m) exceeds category threshold of {max_radius:.0f}m.")
+            reasons.append(f"Distance ({dist_meters:.1f}m) exceeds spatial gate of {effective_radius:.0f}m.")
             
         if is_category_match:
             reasons.append("Identical civic issue category.")
             
         if time_diff_hours <= 24.0:
             reasons.append(f"Filed within {time_diff_hours:.1f} hours of original report.")
-            
-        if visual_similarity is not None and visual_similarity > 0.70:
-            reasons.append(f"High photographic bitwise similarity ({int(visual_similarity * 100)}%).")
+
+        if clip_sim is not None:
+            reasons.append(f"CLIP ViT-B/32 semantic image similarity: {int(clip_sim * 100)}%.")
+        elif phash_sim is not None and phash_sim > 0.70:
+            reasons.append(f"Perceptual bitwise hash similarity: {int(phash_sim * 100)}%.")
+
+        is_duplicate = (composite_score >= settings.DUPLICATE_SCORE_THRESHOLD and is_within_gate)
 
         return {
             "source_report_id": report_a.id,
@@ -163,9 +180,12 @@ class DuplicateService:
             "category_match": is_category_match,
             "time_diff_hours": round(time_diff_hours, 1),
             "visual_similarity": round(visual_similarity, 2) if visual_similarity is not None else None,
+            "clip_similarity": round(clip_sim, 4) if clip_sim is not None else None,
+            "phash_similarity": round(phash_sim, 4) if phash_sim is not None else None,
+            "visual_type": visual_type,
             "composite_score": composite_score,
             "match_percentage": int(round(composite_score * 100.0)),
-            "is_duplicate_candidate": (composite_score >= settings.DUPLICATE_SCORE_THRESHOLD and dist_meters <= max_radius),
+            "is_duplicate_candidate": is_duplicate,
             "reasons": reasons
         }
 
@@ -173,10 +193,10 @@ class DuplicateService:
     def find_and_create_duplicate_candidates(cls, db: Session, new_report: Report) -> List[DuplicateCandidate]:
         """
         Scan active nearby reports in DB and record duplicate candidate links.
+        Extracts and compares CLIP embeddings and perceptual hashes.
         """
-        # Fetch candidate reports within ~150 meters (rough bounding box + exact haversine filter)
-        delta_lat = 0.002  # ~220m
-        delta_lon = 0.002
+        delta_lat = 0.0025  # ~275m rough bounding box
+        delta_lon = 0.0025
         
         candidates = db.query(Report).filter(
             Report.id != new_report.id,
@@ -187,20 +207,25 @@ class DuplicateService:
         
         created_records: List[DuplicateCandidate] = []
         
-        # Get hash of new report if available
+        # New report visual features
         new_hash = None
         if new_report.ai_prediction and new_report.ai_prediction.detected_features:
             new_hash = new_report.ai_prediction.detected_features.get("perceptual_hash")
+        new_emb = EmbeddingService.get_or_compute_report_embedding(db, new_report)
 
         for existing in candidates:
             exist_hash = None
             if existing.ai_prediction and existing.ai_prediction.detected_features:
                 exist_hash = existing.ai_prediction.detected_features.get("perceptual_hash")
+            exist_emb = EmbeddingService.get_or_compute_report_embedding(db, existing)
                 
-            eval_result = cls.evaluate_duplicate_pair(new_report, existing, new_hash, exist_hash)
+            eval_result = cls.evaluate_duplicate_pair(
+                new_report, existing,
+                p_hash_a=new_hash, p_hash_b=exist_hash,
+                emb_a=new_emb, emb_b=exist_emb
+            )
             
             if eval_result["is_duplicate_candidate"]:
-                # Check if candidate link already exists
                 existing_link = db.query(DuplicateCandidate).filter(
                     ((DuplicateCandidate.source_report_id == new_report.id) & (DuplicateCandidate.target_report_id == existing.id)) |
                     ((DuplicateCandidate.source_report_id == existing.id) & (DuplicateCandidate.target_report_id == new_report.id))
@@ -214,6 +239,8 @@ class DuplicateService:
                         category_match=eval_result["category_match"],
                         time_diff_hours=eval_result["time_diff_hours"],
                         visual_similarity=eval_result["visual_similarity"],
+                        clip_similarity=eval_result["clip_similarity"],
+                        phash_similarity=eval_result["phash_similarity"],
                         composite_score=eval_result["composite_score"],
                         status="suggested",
                         notes="; ".join(eval_result["reasons"])
@@ -222,6 +249,9 @@ class DuplicateService:
                     created_records.append(link)
 
         if created_records:
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
             
         return created_records

@@ -26,6 +26,14 @@ def client():
         yield c
 
 @pytest.fixture
+def db_session():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@pytest.fixture
 def admin_token(client):
     res = client.post("/api/auth/login", json={
         "email": "admin@civicpulse.gov.in",

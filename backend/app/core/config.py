@@ -46,10 +46,14 @@ class Settings(BaseSettings):
     }
     DUPLICATE_TIME_WINDOW_DAYS: int = 30     # Within 30 days
     DUPLICATE_SCORE_THRESHOLD: float = 0.65  # 65% composite match
+    GPS_ACCURACY_MARGIN_METERS: float = 10.0 # Urban GPS uncertainty buffer
 
-    # Geospatial DBSCAN Clustering Parameters (Configured from k-distance elbow analysis)
+    # Geospatial DBSCAN / HDBSCAN Clustering Parameters
     DBSCAN_EPS_METERS: float = 300.0  # 300m neighborhood radius
     DBSCAN_MIN_SAMPLES: int = 3
+    HDBSCAN_MIN_CLUSTER_SIZE: int = 3
+    HDBSCAN_MIN_SAMPLES: int = 2
+    HOTSPOT_TIME_DECAY_HALF_LIFE_DAYS: float = 14.0
     
     # Civic Hub Coordinates (Default: Bengaluru Center)
     DEFAULT_LAT: float = 12.9716

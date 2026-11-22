@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -38,10 +39,14 @@ def list_duplicate_candidates(
                 "distance_meters": c.distance_meters,
                 "category_match": c.category_match,
                 "time_diff_hours": c.time_diff_hours,
+                "visual_similarity": c.visual_similarity,
+                "clip_similarity": c.clip_similarity,
+                "phash_similarity": c.phash_similarity,
                 "composite_score": c.composite_score,
                 "match_percentage": int(round(c.composite_score * 100)),
                 "status": c.status,
                 "notes": c.notes,
+                "resolution_feedback": c.resolution_feedback,
                 "created_at": c.created_at
             })
     return results
@@ -53,13 +58,28 @@ def resolve_duplicate_candidate(
     db: Session = Depends(get_db),
     admin_user: User = Depends(get_current_active_admin)
 ):
-    """Confirm or reject a duplicate report suggestion."""
+    """Confirm or reject a duplicate report suggestion and log human feedback for fine-tuning."""
     link = db.query(DuplicateCandidate).filter(DuplicateCandidate.id == candidate_id).first()
     if not link:
         raise HTTPException(status_code=404, detail="Duplicate candidate link not found")
 
     link.status = payload.status
     link.resolved_by_user_id = admin_user.id
+    link.resolution_feedback = {
+        "decision": payload.status,
+        "resolved_by_user_id": admin_user.id,
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+        "notes": payload.notes,
+        "features_at_resolution": {
+            "distance_meters": link.distance_meters,
+            "category_match": link.category_match,
+            "time_diff_hours": link.time_diff_hours,
+            "clip_similarity": link.clip_similarity,
+            "phash_similarity": link.phash_similarity,
+            "composite_score": link.composite_score
+        }
+    }
+
     if payload.notes:
         link.notes = f"{link.notes or ''} [Admin Decision: {payload.status}] {payload.notes}".strip()
 
@@ -83,4 +103,9 @@ def resolve_duplicate_candidate(
             db.add(audit)
 
     db.commit()
-    return {"status": "success", "duplicate_candidate_id": candidate_id, "resolved_status": payload.status}
+    return {
+        "status": "success",
+        "duplicate_candidate_id": candidate_id,
+        "resolved_status": payload.status,
+        "feedback_logged": True
+    }

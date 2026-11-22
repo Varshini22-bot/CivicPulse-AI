@@ -46,6 +46,7 @@ civicpulse.db.bak
 # User Uploads (keep directory structure)
 uploads/*
 !uploads/.gitkeep
+data/ood_bengaluru/augmented_pairs/
 
 # Environment variables
 .env

@@ -1,0 +1,175 @@
+{
+  "dataset": "Bengaluru Arterial and Collector Road Network",
+  "attribution": "Map data © OpenStreetMap contributors, licensed under ODbL 1.0 (opendatacommons.org/licenses/odbl)",
+  "crs": "EPSG:4326",
+  "features": [
+    {
+      "segment_id": "OSM-WAY-BLR-001",
+      "osm_way_id": "way/104928172",
+      "name": "Koramangala 80 Feet Road",
+      "highway_type": "secondary",
+      "ward": "Koramangala",
+      "length_meters": 1450.0,
+      "coordinates": [
+        [77.6185, 12.9360],
+        [77.6220, 12.9348],
+        [77.6265, 12.9335],
+        [77.6310, 12.9320]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-002",
+      "osm_way_id": "way/293847192",
+      "name": "Koramangala 100 Feet Road",
+      "highway_type": "primary",
+      "ward": "Koramangala",
+      "length_meters": 2100.0,
+      "coordinates": [
+        [77.6250, 12.9250],
+        [77.6280, 12.9285],
+        [77.6305, 12.9340],
+        [77.6330, 12.9380]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-003",
+      "osm_way_id": "way/384729104",
+      "name": "100 Feet Road Indiranagar",
+      "highway_type": "primary",
+      "ward": "Indiranagar",
+      "length_meters": 2400.0,
+      "coordinates": [
+        [77.6400, 12.9640],
+        [77.6415, 12.9700],
+        [77.6430, 12.9780],
+        [77.6445, 12.9830]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-004",
+      "osm_way_id": "way/482710395",
+      "name": "Chinmaya Mission Hospital (CMH) Road",
+      "highway_type": "secondary",
+      "ward": "Indiranagar",
+      "length_meters": 1800.0,
+      "coordinates": [
+        [77.6320, 12.9785],
+        [77.6380, 12.9782],
+        [77.6440, 12.9780],
+        [77.6490, 12.9778]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-005",
+      "osm_way_id": "way/592810394",
+      "name": "Sampige Road",
+      "highway_type": "secondary",
+      "ward": "Malleshwaram",
+      "length_meters": 2200.0,
+      "coordinates": [
+        [77.5710, 12.9960],
+        [77.5708, 13.0030],
+        [77.5705, 13.0090],
+        [77.5702, 13.0140]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-006",
+      "osm_way_id": "way/601928374",
+      "name": "Margosa Road",
+      "highway_type": "secondary",
+      "ward": "Malleshwaram",
+      "length_meters": 2200.0,
+      "coordinates": [
+        [77.5725, 12.9960],
+        [77.5722, 13.0030],
+        [77.5720, 13.0090],
+        [77.5718, 13.0140]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-007",
+      "osm_way_id": "way/719283049",
+      "name": "Outer Ring Road (Silk Board to Bellandur)",
+      "highway_type": "trunk",
+      "ward": "HSR Layout",
+      "length_meters": 3800.0,
+      "coordinates": [
+        [77.6250, 12.9170],
+        [77.6380, 12.9230],
+        [77.6520, 12.9280],
+        [77.6680, 12.9350]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-008",
+      "osm_way_id": "way/829103948",
+      "name": "Outer Ring Road (Bellandur to Marathahalli)",
+      "highway_type": "trunk",
+      "ward": "Bellandur",
+      "length_meters": 3200.0,
+      "coordinates": [
+        [77.6680, 12.9350],
+        [77.6800, 12.9430],
+        [77.6920, 12.9510],
+        [77.7020, 12.9560]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-009",
+      "osm_way_id": "way/918273645",
+      "name": "Hosur Main Road",
+      "highway_type": "trunk",
+      "ward": "Madiwala",
+      "length_meters": 2900.0,
+      "coordinates": [
+        [77.6180, 12.9250],
+        [77.6220, 12.9200],
+        [77.6270, 12.9150],
+        [77.6320, 12.9100]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-010",
+      "osm_way_id": "way/192837465",
+      "name": "Bannerghatta Main Road",
+      "highway_type": "primary",
+      "ward": "J.P. Nagar",
+      "length_meters": 3500.0,
+      "coordinates": [
+        [77.5980, 12.9320],
+        [77.5990, 12.9220],
+        [77.6000, 12.9120],
+        [77.6010, 12.9020]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-011",
+      "osm_way_id": "way/283746519",
+      "name": "Whitefield Main Road",
+      "highway_type": "primary",
+      "ward": "Whitefield",
+      "length_meters": 4100.0,
+      "coordinates": [
+        [77.7280, 12.9690],
+        [77.7380, 12.9695],
+        [77.7480, 12.9700],
+        [77.7580, 12.9710]
+      ]
+    },
+    {
+      "segment_id": "OSM-WAY-BLR-012",
+      "osm_way_id": "way/394857261",
+      "name": "Old Airport Road",
+      "highway_type": "primary",
+      "ward": "HAL",
+      "length_meters": 3600.0,
+      "coordinates": [
+        [77.6450, 12.9600],
+        [77.6600, 12.9580],
+        [77.6750, 12.9560],
+        [77.6880, 12.9550]
+      ]
+    }
+  ]
+}

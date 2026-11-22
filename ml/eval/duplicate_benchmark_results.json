@@ -1,0 +1,49 @@
+{
+  "benchmark_description": "Optimistic synthetic evaluation of duplicate visual detection on augmentation pairs.",
+  "disclaimer": "Smoke test only on synthetic augmentation pairs; not evidence of real-world duplicate performance.",
+  "total_pairs": 80,
+  "positive_pairs": 40,
+  "negative_pairs": 40,
+  "method_phash_bitwise": {
+    "threshold": 0.75,
+    "metrics": {
+      "precision": 0.7,
+      "precision_95ci": [
+        0.474,
+        0.889
+      ],
+      "recall": 0.35,
+      "recall_95ci": [
+        0.2,
+        0.511
+      ],
+      "f1_score": 0.467,
+      "f1_95ci": [
+        0.292,
+        0.605
+      ]
+    },
+    "mean_latency_ms": 26.76
+  },
+  "method_openclip_embeddings": {
+    "threshold": 0.82,
+    "metrics": {
+      "precision": 0.816,
+      "precision_95ci": [
+        0.708,
+        0.922
+      ],
+      "recall": 1.0,
+      "recall_95ci": [
+        1.0,
+        1.0
+      ],
+      "f1_score": 0.899,
+      "f1_95ci": [
+        0.829,
+        0.959
+      ]
+    },
+    "mean_latency_ms": 414.9
+  }
+}

@@ -5,6 +5,8 @@ from app.database.connection import get_db
 from app.models import Report, Category
 from app.core.config import settings
 from app.services.geospatial_service import GeospatialService
+from app.services.recurrence_service import RecurrenceService
+from app.services.routing_service import RoutingService
 
 router = APIRouter(prefix="/map", tags=["Geospatial & Map"])
 
@@ -33,7 +35,6 @@ def get_map_reports(
 
     reports = query.all()
 
-    # Priority color mapping
     priority_colors = {
         "Critical": "#ef4444",  # Red
         "High": "#f97316",      # Orange
@@ -57,6 +58,7 @@ def get_map_reports(
             "longitude": r.longitude,
             "address": r.address,
             "area": r.area,
+            "road_segment_id": r.road_segment_id,
             "is_duplicate": r.is_duplicate,
             "created_at": r.created_at.isoformat() if r.created_at else None
         })
@@ -65,15 +67,67 @@ def get_map_reports(
 
 @router.get("/hotspots")
 def get_map_hotspots(
+    algorithm: str = Query("hdbscan", pattern="^(hdbscan|dbscan)$"),
     eps_meters: Optional[float] = Query(None, ge=50.0, le=5000.0),
     min_samples: Optional[int] = Query(None, ge=2, le=20),
+    min_cluster_size: Optional[int] = Query(None, ge=2, le=30),
+    category_code: Optional[str] = Query(None),
+    decay_days: Optional[float] = Query(None, ge=1.0, le=365.0),
     db: Session = Depends(get_db)
 ):
     """
-    Detect geographic issue hotspots across municipal wards using DBSCAN spatial density clustering.
-    Defaults are empirically configured from k-distance elbow analysis (eps=300m, min_samples=3).
+    Detect geographic issue hotspots across municipal wards using spatial density clustering.
+    Supports HDBSCAN (hierarchical variable density) and DBSCAN (fixed-radius) with exponential temporal decay.
     """
-    return GeospatialService.detect_hotspots(db=db, eps_meters=eps_meters, min_samples=min_samples)
+    return GeospatialService.detect_hotspots(
+        db=db,
+        algorithm=algorithm,
+        eps_meters=eps_meters,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        category_code=category_code,
+        time_decay_half_life_days=decay_days
+    )
+
+@router.get("/recurring-failures")
+def get_recurring_failures(
+    min_incidents: int = Query(3, ge=2, le=20),
+    window_days: int = Query(90, ge=7, le=365),
+    db: Session = Depends(get_db)
+):
+    """
+    Identify chronic recurring infrastructure failures on OpenStreetMap road segments.
+    Flags repeated repair history with civil engineering root-cause advisory recommendations.
+    """
+    return RecurrenceService.detect_recurring_failures(
+        db=db,
+        min_incident_count=min_incidents,
+        time_window_days=window_days
+    )
+
+@router.get("/dispatch-route")
+def get_dispatch_route(
+    area: Optional[str] = Query(None),
+    max_stops: int = Query(10, ge=2, le=30),
+    depot_lat: Optional[float] = Query(None),
+    depot_lon: Optional[float] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculates the optimal dispatch inspection sequence using Google OR-Tools TSP solver.
+    Minimizes transit distance and deadheading for municipal work crews.
+    """
+    query = db.query(Report).filter(Report.status.notin_(["Resolved", "Rejected"]))
+    if area:
+        query = query.filter(Report.area == area)
+    
+    # Prioritize critical and high issues
+    reports = query.order_by(Report.priority_score.desc()).limit(max_stops).all()
+    return RoutingService.optimize_dispatch_route(
+        reports=reports,
+        start_latitude=depot_lat,
+        start_longitude=depon_lon if (depot_lon := depot_lon) else None
+    )
 
 @router.get("/nearby")
 def get_nearby_issues(

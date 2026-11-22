@@ -19,3 +19,4 @@ slowapi>=0.1.10
 matplotlib>=3.8.0
 alembic>=1.13.0
 geoalchemy2>=0.14.0
+ortools>=9.9.0
