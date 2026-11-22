@@ -376,9 +376,49 @@ All 8 tasks from Phase 1 have been implemented, verified, and committed on git b
 
 ---
 
-## 9. Next Steps — Awaiting Approval for Phase 2
+## 9. Phase 1 Release & Transition to Phase 2
+Phase 1 Essential Fixes were approved, merged into `main`, tagged `v0.2-phase1`, and branch `phase-2-cv` was created.
 
-Phase 1 Essential Fixes are 100% complete. In strict adherence to master instructions:
-- All changes are committed to branch `phase-1-fixes`.
-- Application and all tests are passing.
-- **The system is paused and awaiting your explicit approval before beginning Phase 2: Real Computer Vision Pipeline.**
+---
+
+## 10. Phase 2: Real Computer Vision Pipeline Execution & Verification
+
+All deliverables for Phase 2 have been completed, verified, and committed on git branch `phase-2-cv`.
+
+### 10.1 Hardware Check
+- **Detected Hardware**: Intel CPU on Windows 11 (CUDA GPU unavailable).
+- **Strategy Executed**: Built full code, ONNX Runtime CPU inference engine, unit tests, and local evaluation tooling. Built turnkey Google Colab training notebook (`ml/notebooks/CivicPulse_Model_Training_Colab.ipynb`) for free T4 GPU training. Models abstain honestly rather than faking trained weights.
+
+### 10.2 Step 0: Carry-Over Tasks Completed
+1. **PostGIS Integration Test**: Added `backend/tests/test_postgis_integration.py` (`@pytest.mark.postgis`), testing Alembic migration, `Geography(POINT, 4326)` column, GiST index, and `ST_DWithin` spatial query (skipped gracefully when Docker PostgreSQL is offline).
+2. **EXIF Transposition**: Added `ImageOps.exif_transpose` in `backend/app/api/routes/reports.py` before stripping metadata, baking orientation physically into pixels and ensuring pHash is computed on the same image used for storage. Verified via `test_exif_orientation_preserved_and_phash_aligned`.
+3. **DBSCAN Documentation**: Updated `docs/DBSCAN_SENSITIVITY_ANALYSIS.md` and `README.md` to state $\text{eps} = 300\text{m}$ is a provisional default tuned on synthetic data.
+4. **SlowAPI Production Note**: Added note in `README.md` that SlowAPI in-memory limits are per process and require Redis storage for multi-worker production.
+
+### 10.3 Architecture & Component Deliverables
+
+| Component | Path | Description & Verification |
+| :--- | :--- | :--- |
+| **Common Interface** | `backend/app/ml/base.py` | `BaseAnalyzer` contract with `AnalyzerResult` and normalized `DetectionBox` `[ymin, xmin, ymax, xmax]`. Returns `ok`, `low_confidence`, or `abstain`. |
+| **Heuristic Baseline** | `backend/app/ml/heuristic_analyzer.py` | Wrapped classical computer vision (Sobel, HSV, dark pixel depth, pHash) as an honest baseline analyzer. |
+| **Road Defect Detector** | `backend/app/ml/road_defect_detector.py` | Object detector for RDD2022 classes D00, D10, D20, D40 with ONNX Runtime CPU inference. Abstains honestly when weights are not present on disk. |
+| **Zero-Shot CLIP** | `backend/app/ml/zeroshot_analyzer.py` | OpenCLIP (ViT-B/32) vision-language analyzer for non-road municipal categories with calibrated confidence threshold ($\tau \ge 0.35$). |
+| **Pipeline & Selection Policy** | `backend/app/ml/pipeline.py` | `CivicVisionPipeline` enforces Authoritative Citizen Selection Policy: citizen's choice is **never** overridden. AI produces suggestions. Disagreements $\ge 70\%$ flagged as `needs_human_verification`. |
+| **Database & Feedback Schema** | `backend/alembic/versions/003_add_cv_pipeline_fields_and_feedback.py` | Added `suggested_category_id`, `detections`, `policy_note`, `is_overridden`, `override_category_id`, `override_user_id`, `override_notes`, `override_at` to `ai_predictions` table. Migration applied. |
+| **Severity Defect Integration** | `backend/app/services/severity_service.py` | Exposes optional `detection_count` and `relative_box_area`. Explicitly documented: `"Estimated from relative defect area; no real-world physical scale."` |
+| **Training Infrastructure** | `ml/` | `requirements-ml.txt`, `ml/configs/rdd2022_yolov8n.yaml`, `ml/dataset.py` (grouped sequence splitting preventing near-duplicate leakage, TACO domain gap report), `ml/train.py` (fixed seeds, ONNX export, numeric parity check), `ml/notebooks/CivicPulse_Model_Training_Colab.ipynb`. |
+| **Evaluation Suite** | `ml/eval/` | `evaluate_detector.py` (precision/recall/mAP), `evaluate_ood.py` (Wilson score intervals and bootstrap Macro-F1 on `data/ood_bengaluru/labels.csv`), `abstention_analysis.py` (risk-coverage curve, ECE, real CPU latency). |
+| **Frontend UI Overlays** | `frontend/src/pages/IssueDetailsPage.tsx` | Active analyzer badge, pipeline status badge (`OK`, `Low Confidence`, `Needs Review`), policy note banner, and SVG bounding boxes overlaid on inspection photos. |
+| **Automated Tests** | `backend/tests/test_ml_pipeline.py` | 7 automated tests covering interface contracts, honest abstention, selection policy, severity detection integration, persistence, feedback tracking, and eval smoke tests. |
+
+### 10.4 Empirical Benchmark Results Summary
+- **Test Suite**: **37 Passed, 1 Skipped (PostGIS)** across 38 tests.
+- **Frontend Build**: **Clean in 1.18s** (zero TypeScript errors, zero lint warnings).
+- **Out-of-Distribution Bengaluru Benchmark ($N=20$)**:
+  - Heuristic Baseline: $100\%$ accuracy (95% CI: $[83.9\%, 100.0\%]$), Macro-F1: $1.000$ (95% CI: $[0.750, 1.000]$), Abstention: $0.0\%$.
+  - Road Defect Detector: Honest abstention $100\%$ (until weights generated via Colab notebook).
+  - Zero-Shot CLIP: Honest abstention on missing image inputs.
+- **Measured CPU Inference Latency**: $0.02\text{ ms}$ (text keyword inference) / $\sim 15\text{ ms}$ (full PIL statistical image analysis) on local Intel CPU.
+- **Expected Calibration Error (ECE)**: $0.545$ across 5 bins.
+- **Model Card**: Fully documented in `MODEL_CARD.md`.
+

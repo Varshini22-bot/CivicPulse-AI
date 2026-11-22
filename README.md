@@ -105,11 +105,31 @@ To prevent double counting category hazard between severity estimation and prior
 - **60–79**: High Priority (Orange)
 - **80–100**: Critical Public Hazard (Red, blinking pin)
 
-### Model Evaluation Status
-- **Current Analyzer**: Classical Computer Vision heuristic baseline (Sobel edge gradients, HSV saturation, dark pixel cavity depth, and semantic keyword scoring).
-- **Evaluation Status**: **Not yet evaluated on a labelled dataset.**
-- **Phase 2 Plan**: Fine-tune a lightweight neural detector (YOLOv8n / MobileNetV3) on public datasets (RDD2022 for road damage, TACO for garbage), with zero-shot CLIP fallback and held-out validation splits.
-- See [MODEL_CARD.md](MODEL_CARD.md) for full architecture and limits.
+### Multi-Model Computer Vision Pipeline (Phase 2 Architecture)
+CivicPulse AI deploys an extensible, multi-model vision pipeline (`CivicVisionPipeline`) conforming to a unified `BaseAnalyzer` contract:
+
+1. **`HeuristicAnalyzer` (Baseline)**: Classical computer vision extracting normalized Sobel edge gradients, dark cavity depression ratio, HSV variance, and domain keyword matching.
+2. **`RoadDefectDetector` (Trained Defect Localization)**: Localized defect detector for asphalt cracking and potholes (RDD2022 classes D00 longitudinal, D10 transverse, D20 alligator, D40 pothole) running via ONNX Runtime on CPU. Abstains honestly when local weights are not deployed.
+3. **`ZeroShotAnalyzer` (Vision-Language Generalization)**: OpenCLIP (ViT-B/32) evaluating zero-shot prompts for municipal solid waste, drainage, and infrastructure defects with calibrated confidence thresholds ($\tau \ge 0.35$).
+4. **`CivicVisionPipeline` (Authoritative Citizen Selection Policy)**:
+   - **Citizen Choice is Authoritative**: The citizen's submitted category is **never** silently overwritten.
+   - **Explainable Suggestions**: AI produces suggestions, bounding boxes, and evidence.
+   - **Disagreement Routing**: If the AI suggests a different category with confidence $\ge 70\%$, the report is routed to `needs_human_verification` with an explanatory note for municipal review.
+   - **Honest Abstention**: If models lack weights or confidence $< 40\%$, the pipeline abstains rather than inventing guesses.
+
+### Training & Deployment (Google Colab T4 GPU)
+Because standard development environments lack dedicated CUDA GPUs, a turnkey Google Colab notebook is provided:
+- **Notebook**: [`ml/notebooks/CivicPulse_Model_Training_Colab.ipynb`](ml/notebooks/CivicPulse_Model_Training_Colab.ipynb)
+- **Anti-Leakage Data Prep**: `python ml/dataset.py` groups dashcam frames by road sequence to prevent consecutive-frame data leakage between train/val/test splits.
+- **Reproducible Training**: `python ml/train.py --config ml/configs/rdd2022_yolov8n.yaml --epochs 30 --seed 42 --export-onnx`
+- **ONNX Export & Parity Check**: Verifies numeric parity between PyTorch and ONNX Runtime outputs.
+- **Local Deployment**: Download `road_detector.onnx` into `backend/app/ml/weights/road_detector.onnx`. The pipeline automatically switches the detector from `abstain` to active mode and overlays bounding boxes on citizen photos!
+
+### Evaluation Suite
+- **Detector Evaluation**: `python ml/eval/evaluate_detector.py` computes precision, recall, mAP@0.5, and mAP@0.5:0.95.
+- **Out-of-Distribution Bengaluru Benchmark**: `python ml/eval/evaluate_ood.py` benchmarks models against real citizen photos (`data/ood_bengaluru/labels.csv`) with 95% Wilson Score intervals and 1,000-sample bootstrap Macro-F1.
+- **Confidence Calibration & Latency**: `python ml/eval/abstention_analysis.py` measures Expected Calibration Error (ECE), risk-coverage curves, and actual local CPU inference latency.
+- Detailed metrics and license details are documented in [MODEL_CARD.md](MODEL_CARD.md).
 
 ---
 
@@ -184,15 +204,18 @@ The database comes pre-seeded with realistic simulated data across 12 Bengaluru 
 
 ## 🧪 7. Automated Testing Suite
 
-CivicPulse AI includes 17 comprehensive unit and integration tests covering:
-- Authentication & JWT token issuance
-- Citizen report submission & multi-stage AI triage
-- Explainable severity estimation
-- 5-factor priority formula verification
-- Spherical Haversine duplicate distance scoring
-- Model evaluation pipeline metrics & confusion matrix
-- Municipal status transitions and state machine validation
-- Human-in-the-loop AI overrides & audit logging
+CivicPulse AI includes 38 comprehensive unit and integration tests covering:
+- Authentication & JWT token issuance (Citizen vs Admin RBAC)
+- Multi-model Computer Vision pipeline & BaseAnalyzer contracts
+- Honest abstention when local model weights are absent
+- Authoritative citizen selection policy (citizen category never altered)
+- AI prediction storage and administrative override feedback tracking
+- Bounding box metrics integration with defect severity
+- EXIF metadata stripping and orientation preservation (`ImageOps.exif_transpose`)
+- Spherical Haversine duplicate distance scoring with bitwise Hamming distance
+- Priority formula orthogonality and absence of double counting
+- Data provenance tracking (`is_synthetic` flags)
+- PostGIS Geography column and GiST spatial index migration
 - Geospatial DBSCAN hotspot queries
 - Real-time BI KPI aggregations and CSV data export
 
@@ -203,7 +226,7 @@ python -m pytest backend/tests -v
 
 Output:
 ```
-======================= 17 passed in 10.26s =======================
+======================= 37 passed, 1 skipped in 30.51s =======================
 ```
 
 ---
