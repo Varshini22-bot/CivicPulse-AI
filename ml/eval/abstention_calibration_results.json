@@ -1,0 +1,99 @@
+{
+  "benchmark_dataset": "data/ood_bengaluru/labels.csv",
+  "sample_count": 20,
+  "expected_calibration_error": {
+    "ece": 0.545,
+    "n_bins": 5,
+    "bins": [
+      {
+        "bin_range": [
+          0.2,
+          0.4
+        ],
+        "count": 10,
+        "accuracy": 1.0,
+        "confidence": 0.366,
+        "calibration_gap": 0.634
+      },
+      {
+        "bin_range": [
+          0.4,
+          0.6
+        ],
+        "count": 10,
+        "accuracy": 1.0,
+        "confidence": 0.544,
+        "calibration_gap": 0.456
+      }
+    ]
+  },
+  "risk_coverage_curve": [
+    {
+      "threshold_tau": 0.0,
+      "coverage": 1.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 20,
+      "abstained_count": 0
+    },
+    {
+      "threshold_tau": 0.3,
+      "coverage": 1.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 20,
+      "abstained_count": 0
+    },
+    {
+      "threshold_tau": 0.4,
+      "coverage": 0.5,
+      "selective_accuracy": 1.0,
+      "retained_count": 10,
+      "abstained_count": 10
+    },
+    {
+      "threshold_tau": 0.5,
+      "coverage": 0.5,
+      "selective_accuracy": 1.0,
+      "retained_count": 10,
+      "abstained_count": 10
+    },
+    {
+      "threshold_tau": 0.6,
+      "coverage": 0.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 0,
+      "abstained_count": 20
+    },
+    {
+      "threshold_tau": 0.7,
+      "coverage": 0.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 0,
+      "abstained_count": 20
+    },
+    {
+      "threshold_tau": 0.8,
+      "coverage": 0.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 0,
+      "abstained_count": 20
+    },
+    {
+      "threshold_tau": 0.9,
+      "coverage": 0.0,
+      "selective_accuracy": 1.0,
+      "retained_count": 0,
+      "abstained_count": 20
+    }
+  ],
+  "measured_cpu_latency": {
+    "iterations": 50,
+    "unit": "milliseconds",
+    "mean_ms": 0.02,
+    "std_ms": 0.0,
+    "p50_median_ms": 0.02,
+    "p95_ms": 0.02,
+    "p99_ms": 0.02,
+    "min_ms": 0.02,
+    "max_ms": 0.02
+  }
+}

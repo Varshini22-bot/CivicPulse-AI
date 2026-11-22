@@ -1,0 +1,25 @@
+# RDD2022 (Road Damage Dataset 2022) - India Subset Configuration
+# Classes:
+# D00: Longitudinal Crack
+# D10: Transverse Crack
+# D20: Alligator Crack
+# D40: Pothole
+
+path: ../data/rdd2022_india
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: D00_longitudinal_crack
+  1: D10_transverse_crack
+  2: D20_alligator_crack
+  3: D40_pothole
+
+# Training parameters
+epochs: 30
+imgsz: 640
+batch: 16
+lr0: 0.01
+seed: 42
+device: 0  # GPU device 0 for Colab / CUDA

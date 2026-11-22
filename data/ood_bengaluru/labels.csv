@@ -1,0 +1,21 @@
+image_id,ground_truth_category,location,is_phone_photo,annotator,notes
+BLR_001,pothole,Koramangala 80ft Road,true,annotator_1,Deep edge asphalt crater
+BLR_002,pothole,Indiranagar 100ft Road,true,annotator_1,Asphalt cavity near storm drain
+BLR_003,road_damage,HSR Layout Sector 1,true,annotator_1,Alligator cracking across bus lane
+BLR_004,road_damage,Outer Ring Road Bellandur,true,annotator_1,Longitudinal tar separation
+BLR_005,garbage_overflow,BTM Layout 2nd Stage,true,annotator_1,Overflowing municipal green dumpster
+BLR_006,garbage_overflow,Jayanagar 4th Block,true,annotator_1,Litter spilling onto pedestrian walkway
+BLR_007,illegal_dumping,Sarjapur Road,true,annotator_1,Large construction debris mound on vacant plot
+BLR_008,illegal_dumping,Whitefield Varthur Road,true,annotator_1,Lorry discarded concrete rubble
+BLR_009,water_leakage,MG Road,true,annotator_1,Subsurface water main pipe burst pooling
+BLR_010,water_leakage,Hebbal Main Road,true,annotator_1,Fresh drinking water gushing from valve
+BLR_011,blocked_drain,Shivajinagar Market,true,annotator_1,Stormwater culvert clogged with plastic silt
+BLR_012,blocked_drain,Malleswaram 8th Cross,true,annotator_1,Open drain overflowing during light rain
+BLR_013,broken_streetlight,Richmond Town,true,annotator_1,Fallen luminaire pole with exposed wiring
+BLR_014,broken_streetlight,Basavanagudi,true,annotator_1,Dark sodium lamp fixture shattered
+BLR_015,damaged_infrastructure,Majestic Bus Stand,true,annotator_1,Broken stainless steel pedestrian railing
+BLR_016,damaged_infrastructure,Domlur Flyover,true,annotator_1,Missing concrete footpath slab
+BLR_017,pothole,Koramangala Sony World,true,annotator_1,Waterlogged pothole at intersection
+BLR_018,garbage_overflow,Ulsoor Lake Road,true,annotator_1,Rotting organic waste pile near boundary
+BLR_019,road_damage,Bannerghatta Road,true,annotator_1,Severe rutting and crumbled tarmac
+BLR_020,blocked_drain,Rajajinagar 1st Block,true,annotator_1,Choked roadside storm gutter
