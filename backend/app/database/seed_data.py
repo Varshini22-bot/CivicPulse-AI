@@ -130,7 +130,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Depression, rim fracture, or crater in asphalt roadway endangering vehicular or two-wheeler traffic.",
             "default_dept": "BBMP-RD",
             "icon": "circle-dot",
-            "safety_weight": 0.85
+            "safety_weight": 0.85,
+            "base_severity": 6,
+            "keywords": ["pothole", "crater", "hole", "cavity", "asphalt", "bump", "tyre", "tire", "bike fell"]
         },
         {
             "code": "road_damage",
@@ -138,7 +140,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Surface cracking, uneven tarmac, shoulder disintegration, or unfinished trench cuts.",
             "default_dept": "BBMP-RD",
             "icon": "git-commit",
-            "safety_weight": 0.70
+            "safety_weight": 0.70,
+            "base_severity": 5,
+            "keywords": ["crack", "road damage", "tar", "uneven road", "broken road", "tarmac", "crumbling"]
         },
         {
             "code": "garbage_overflow",
@@ -146,7 +150,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Uncollected public bins overflowing with municipal solid waste posing hygiene and odor risks.",
             "default_dept": "BBMP-SWM",
             "icon": "trash-2",
-            "safety_weight": 0.50
+            "safety_weight": 0.50,
+            "base_severity": 4,
+            "keywords": ["garbage", "trash", "waste", "bin", "overflowing", "rubbish", "litter", "smell", "rotting"]
         },
         {
             "code": "illegal_dumping",
@@ -154,7 +160,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Unauthorized large-scale construction debris, commercial waste, or vacant plot disposal.",
             "default_dept": "BBMP-SWM",
             "icon": "alert-triangle",
-            "safety_weight": 0.65
+            "safety_weight": 0.65,
+            "base_severity": 6,
+            "keywords": ["dumping", "debris", "construction waste", "rubble", "discarded", "lorry dumped", "pile"]
         },
         {
             "code": "water_leakage",
@@ -162,7 +170,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Drinking water pipeline breach, leaking municipal valve, or continuous localized pooling.",
             "default_dept": "BWSSB",
             "icon": "droplet",
-            "safety_weight": 0.60
+            "safety_weight": 0.60,
+            "base_severity": 5,
+            "keywords": ["water", "leak", "pipeline", "pipe burst", "drinking water", "flowing water", "puddle"]
         },
         {
             "code": "blocked_drain",
@@ -170,7 +180,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Stormwater drain, roadside culvert, or gutter obstructed by silt or refuse leading to street waterlogging.",
             "default_dept": "BBMP-SWD",
             "icon": "layers",
-            "safety_weight": 0.75
+            "safety_weight": 0.75,
+            "base_severity": 6,
+            "keywords": ["drain", "blocked", "gutter", "clogged", "sewage", "stormwater", "overflowing drain", "stagnant"]
         },
         {
             "code": "broken_streetlight",
@@ -178,7 +190,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Defective luminaire fixture, blackout along arterial stretch, or damaged streetlight pole.",
             "default_dept": "BESCOM",
             "icon": "lightbulb-off",
-            "safety_weight": 0.65
+            "safety_weight": 0.65,
+            "base_severity": 4,
+            "keywords": ["streetlight", "lamp", "dark", "wire", "pole", "light not working", "bulb", "illumination"]
         },
         {
             "code": "damaged_infrastructure",
@@ -186,7 +200,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "Broken sidewalk slabs, missing manhole covers, compromised pedestrian barriers, or shattered bus stops.",
             "default_dept": "BBMP-RD",
             "icon": "construction",
-            "safety_weight": 0.80
+            "safety_weight": 0.80,
+            "base_severity": 6,
+            "keywords": ["footpath", "sidewalk", "railing", "bus stop", "manhole cover", "signboard", "divider", "pavement"]
         },
         {
             "code": "other",
@@ -194,7 +210,9 @@ def seed_database(db: Session, force: bool = False):
             "description": "General civic grievance requiring municipal assessment and departmental routing.",
             "default_dept": "BBMP-RD",
             "icon": "help-circle",
-            "safety_weight": 0.40
+            "safety_weight": 0.40,
+            "base_severity": 4,
+            "keywords": ["general", "civic", "issue", "problem"]
         }
     ]
 
@@ -210,12 +228,16 @@ def seed_database(db: Session, force: bool = False):
                 description=c_data["description"],
                 default_department_id=dept.id,
                 icon=c_data["icon"],
-                safety_weight=c_data["safety_weight"]
+                safety_weight=c_data["safety_weight"],
+                base_severity=c_data.get("base_severity", 5),
+                keywords=c_data.get("keywords", [])
             )
             db.add(cat)
             db.flush()
             cat_map[c_data["code"]] = cat
         else:
+            existing.base_severity = c_data.get("base_severity", 5)
+            existing.keywords = c_data.get("keywords", [])
             cat_map[c_data["code"]] = existing
 
     # 4. Seed Standard Users
@@ -446,6 +468,8 @@ def seed_database(db: Session, force: bool = False):
             priority_score=prio_result["final_score"],
             priority_level=prio_result["priority_level"],
             is_duplicate=False,
+            is_synthetic=True,
+            location=f"POINT({lng} {lat})",
             created_at=created_time,
             updated_at=created_time + timedelta(hours=4),
             resolved_at=resolved_time
@@ -566,6 +590,8 @@ def seed_database(db: Session, force: bool = False):
                 priority_level=anchor_report.priority_level,
                 is_duplicate=True,
                 canonical_report_id=anchor_report.id,
+                is_synthetic=True,
+                location=f"POINT({anchor_report.longitude + 0.00010} {anchor_report.latitude + 0.00015})",
                 created_at=anchor_report.created_at + timedelta(hours=3),
                 updated_at=anchor_report.created_at + timedelta(hours=3)
             )

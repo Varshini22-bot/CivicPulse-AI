@@ -17,42 +17,58 @@ class CivicVisionClassifier:
         "pothole": {
             "name": "Pothole",
             "base_safety": 0.85,
-            "description": "Depression or crater in road asphalt surface"
+            "base_severity": 6,
+            "description": "Depression or crater in road asphalt surface",
+            "keywords": ["pothole", "crater", "hole", "cavity", "asphalt", "bump", "tyre", "tire", "bike fell"]
         },
         "road_damage": {
             "name": "Road Damage",
             "base_safety": 0.70,
-            "description": "Longitudinal/alligator cracking or road surface degradation"
+            "base_severity": 5,
+            "description": "Longitudinal/alligator cracking or road surface degradation",
+            "keywords": ["crack", "road damage", "tar", "uneven road", "broken road", "tarmac", "crumbling"]
         },
         "garbage_overflow": {
             "name": "Garbage Overflow",
             "base_safety": 0.50,
-            "description": "Excess solid municipal waste overflowing containment bins"
+            "base_severity": 4,
+            "description": "Excess solid municipal waste overflowing containment bins",
+            "keywords": ["garbage", "trash", "waste", "bin", "overflowing", "rubbish", "litter", "smell", "rotting"]
         },
         "illegal_dumping": {
             "name": "Illegal Dumping",
             "base_safety": 0.65,
-            "description": "Unauthorized large-scale debris or industrial waste discarded on public land"
+            "base_severity": 6,
+            "description": "Unauthorized large-scale debris or industrial waste discarded on public land",
+            "keywords": ["dumping", "debris", "construction waste", "rubble", "discarded", "lorry dumped", "pile"]
         },
         "water_leakage": {
             "name": "Water Leakage",
             "base_safety": 0.60,
-            "description": "Municipal pipeline leak or pooling fresh water"
+            "base_severity": 5,
+            "description": "Municipal pipeline leak or pooling fresh water",
+            "keywords": ["water", "leak", "pipeline", "pipe burst", "drinking water", "flowing water", "puddle"]
         },
         "blocked_drain": {
             "name": "Blocked Drain",
             "base_safety": 0.75,
-            "description": "Stormwater drain or culvert obstructed by silt or refuse"
+            "base_severity": 6,
+            "description": "Stormwater drain or culvert obstructed by silt or refuse",
+            "keywords": ["drain", "blocked", "gutter", "clogged", "sewage", "stormwater", "overflowing drain", "stagnant"]
         },
         "broken_streetlight": {
             "name": "Broken Streetlight",
             "base_safety": 0.65,
-            "description": "Non-functional luminaire, damaged pole or exposed electrical wiring"
+            "base_severity": 4,
+            "description": "Non-functional luminaire, damaged pole or exposed electrical wiring",
+            "keywords": ["streetlight", "lamp", "dark", "wire", "pole", "light not working", "bulb", "illumination"]
         },
         "damaged_infrastructure": {
             "name": "Damaged Public Infrastructure",
             "base_safety": 0.80,
-            "description": "Broken sidewalk, footpath railing, bus shelter or traffic signage"
+            "base_severity": 6,
+            "description": "Broken sidewalk, footpath railing, bus shelter or traffic signage",
+            "keywords": ["footpath", "sidewalk", "railing", "bus stop", "manhole cover", "signboard", "divider", "pavement"]
         }
     }
 
@@ -61,6 +77,33 @@ class CivicVisionClassifier:
 
     def __init__(self):
         pass
+
+    @classmethod
+    def get_categories_config(cls, db: Optional[Any] = None) -> Dict[str, Dict[str, Any]]:
+        """
+        Dynamically load categories, keywords, and base severity from database.
+        Falls back to default categories if DB is not provided or empty.
+        """
+        if db is not None:
+            try:
+                from app.models import Category
+                db_cats = db.query(Category).all()
+                if db_cats:
+                    configs = {}
+                    for c in db_cats:
+                        fallback = cls.CATEGORIES.get(c.code, {})
+                        kws = getattr(c, "keywords", None) or fallback.get("keywords", [c.name.lower()])
+                        configs[c.code] = {
+                            "name": c.name,
+                            "base_safety": c.safety_weight if c.safety_weight is not None else fallback.get("base_safety", 0.5),
+                            "base_severity": getattr(c, "base_severity", None) or fallback.get("base_severity", 5),
+                            "description": c.description or fallback.get("description", ""),
+                            "keywords": kws
+                        }
+                    return configs
+            except Exception:
+                pass
+        return cls.CATEGORIES
 
     def extract_visual_features(self, image_path: str) -> Dict[str, float]:
         """Extract quantitative computer vision features from an image."""
@@ -125,39 +168,33 @@ class CivicVisionClassifier:
         self,
         image_path: Optional[str],
         user_category_hint: Optional[str] = None,
-        description: Optional[str] = ""
+        description: Optional[str] = "",
+        db: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
         Run modular inference on civic report.
         Blends visual texture/color signatures with semantic text indicators.
+        Categories and keyword profiles are dynamically resolved from DB if available.
         """
         t0 = time.perf_counter()
         features = {}
         if image_path and os.path.exists(image_path):
             features = self.extract_visual_features(image_path)
         
+        categories = self.get_categories_config(db)
+
         # Analyze semantic keywords from description
         desc_lower = (description or "").lower()
-        keyword_scores: Dict[str, float] = {cat: 0.10 for cat in self.CATEGORIES}
+        keyword_scores: Dict[str, float] = {cat: 0.10 for cat in categories}
         
-        category_keywords = {
-            "pothole": ["pothole", "crater", "hole", "cavity", "asphalt", "bump", "tyre", "tire", "bike fell"],
-            "road_damage": ["crack", "road damage", "tar", "uneven road", "broken road", "tarmac", "crumbling"],
-            "garbage_overflow": ["garbage", "trash", "waste", "bin", "overflowing", "rubbish", "litter", "smell", "rotting"],
-            "illegal_dumping": ["dumping", "debris", "construction waste", "rubble", "discarded", "lorry dumped", "pile"],
-            "water_leakage": ["water", "leak", "pipeline", "pipe burst", "drinking water", "flowing water", "puddle"],
-            "blocked_drain": ["drain", "blocked", "gutter", "clogged", "sewage", "stormwater", "overflowing drain", "stagnant"],
-            "broken_streetlight": ["streetlight", "lamp", "dark", "wire", "pole", "light not working", "bulb", "illumination"],
-            "damaged_infrastructure": ["footpath", "sidewalk", "railing", "bus stop", "manhole cover", "signboard", "divider", "pavement"]
-        }
-        
-        for cat, kws in category_keywords.items():
+        for cat, cat_info in categories.items():
+            kws = cat_info.get("keywords", [])
             for kw in kws:
-                if kw in desc_lower:
+                if kw.lower() in desc_lower:
                     keyword_scores[cat] += 0.35
 
         # Visual heuristics matching
-        visual_scores: Dict[str, float] = {cat: 0.15 for cat in self.CATEGORIES}
+        visual_scores: Dict[str, float] = {cat: 0.15 for cat in categories}
         if features:
             ed = features.get("edge_density", 0.0)
             dp = features.get("dark_pixel_ratio", 0.0)
@@ -166,31 +203,31 @@ class CivicVisionClassifier:
             
             # Potholes exhibit dark depressions with distinct rim edges
             if dp > 0.20 and ed > 0.06:
-                visual_scores["pothole"] += 0.40
-                visual_scores["road_damage"] += 0.25
+                if "pothole" in visual_scores: visual_scores["pothole"] += 0.40
+                if "road_damage" in visual_scores: visual_scores["road_damage"] += 0.25
             
             # Road damage/cracks exhibit high edge density on low-saturation surfaces
             if ed > 0.08 and sat < 0.25:
-                visual_scores["road_damage"] += 0.45
+                if "road_damage" in visual_scores: visual_scores["road_damage"] += 0.45
             
             # Garbage has high color variance and high plastic saturation
             if sat > 0.30 or cv > 0.35:
-                visual_scores["garbage_overflow"] += 0.40
-                visual_scores["illegal_dumping"] += 0.35
+                if "garbage_overflow" in visual_scores: visual_scores["garbage_overflow"] += 0.40
+                if "illegal_dumping" in visual_scores: visual_scores["illegal_dumping"] += 0.35
             
             # Blocked drains combine dark slurry with surface debris
             if dp > 0.25 and sat < 0.20:
-                visual_scores["blocked_drain"] += 0.30
-                visual_scores["water_leakage"] += 0.25
+                if "blocked_drain" in visual_scores: visual_scores["blocked_drain"] += 0.30
+                if "water_leakage" in visual_scores: visual_scores["water_leakage"] += 0.25
 
         # User hint influence
-        hint_scores: Dict[str, float] = {cat: 0.10 for cat in self.CATEGORIES}
-        if user_category_hint and user_category_hint in self.CATEGORIES:
+        hint_scores: Dict[str, float] = {cat: 0.10 for cat in categories}
+        if user_category_hint and user_category_hint in categories:
             hint_scores[user_category_hint] += 0.50
 
         # Ensemble aggregation: 0.45 Text + 0.35 Visual + 0.20 User Hint
         total_scores: Dict[str, float] = {}
-        for cat in self.CATEGORIES:
+        for cat in categories:
             raw = (0.45 * keyword_scores[cat]) + (0.30 * visual_scores[cat]) + (0.25 * hint_scores[cat])
             total_scores[cat] = raw
             
@@ -216,7 +253,7 @@ class CivicVisionClassifier:
         elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         return {
             "predicted_category": predicted_cat,
-            "category_name": self.CATEGORIES.get(predicted_cat, {}).get("name", "Needs Review"),
+            "category_name": categories.get(predicted_cat, {}).get("name", "Needs Review"),
             "confidence": confidence,
             "raw_predictions": probabilities,
             "detected_features": features,

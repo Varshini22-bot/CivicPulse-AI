@@ -38,6 +38,8 @@ class CategoryOut(BaseModel):
     description: Optional[str] = None
     icon: str
     safety_weight: float
+    base_severity: int = 5
+    keywords: List[str] = []
     model_config = ConfigDict(from_attributes=True)
 
 class StaffOut(BaseModel):
@@ -138,6 +140,7 @@ class ReportListItemOut(BaseModel):
     priority_score: float
     priority_level: str
     is_duplicate: bool
+    is_synthetic: bool = False
     created_at: datetime
     updated_at: datetime
     resolved_at: Optional[datetime] = None

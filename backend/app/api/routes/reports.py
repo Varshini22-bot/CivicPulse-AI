@@ -46,6 +46,7 @@ def serialize_report_item(r: Report) -> dict:
         "priority_score": r.priority_score,
         "priority_level": r.priority_level,
         "is_duplicate": r.is_duplicate,
+        "is_synthetic": getattr(r, "is_synthetic", False),
         "created_at": r.created_at,
         "updated_at": r.updated_at,
         "resolved_at": r.resolved_at,
