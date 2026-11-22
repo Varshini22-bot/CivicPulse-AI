@@ -186,21 +186,23 @@ export interface ChartData {
 export interface AIMetrics {
   model_name: string;
   version: string;
+  status_message?: string;
   total_test_samples: number;
-  overall_accuracy: number;
-  macro_precision: number;
-  macro_recall: number;
-  macro_f1: number;
+  overall_accuracy: number | null;
+  macro_precision: number | null;
+  macro_recall: number | null;
+  macro_f1: number | null;
   per_class_metrics: Record<string, {
-    precision: number;
-    recall: number;
-    f1_score: number;
+    precision: number | null;
+    recall: number | null;
+    f1_score: number | null;
     support: number;
   }>;
   classes: string[];
-  confusion_matrix: number[][];
+  confusion_matrix: number[][] | null;
   evaluation_status: string;
-  evaluated_at: string;
+  evaluated_at?: string;
+  note?: string;
 }
 
 export interface NotificationItem {

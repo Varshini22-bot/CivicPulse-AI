@@ -59,7 +59,7 @@ export const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNav
         <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <p>© 2026 CivicPulse AI Platform. Developed for Technical Portfolio & Municipal Systems Engineering Demonstration.</p>
           <div className="flex items-center gap-4">
-            <span className="text-[11px] bg-slate-800 px-2.5 py-1 rounded-sm text-slate-300">Model: CivicPulse-Vision-Ensemble-v1 (87.1% Acc)</span>
+            <span className="text-[11px] bg-slate-800 px-2.5 py-1 rounded-sm text-slate-300">Analyzer: Heuristic Baseline (Phase 2 Model Training Pending)</span>
             <span className="text-[11px] bg-slate-800 px-2.5 py-1 rounded-sm text-slate-300">FastAPI + React 19 + PostGIS</span>
           </div>
         </div>

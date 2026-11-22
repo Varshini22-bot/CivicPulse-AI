@@ -100,32 +100,24 @@ $$P = \min\left(100, \, \max\left(0, \, w_1 S + w_2 Saf + w_3 Loc + w_4 Com + w_
 
 ---
 
-## 4. Empirical Evaluation Benchmark
+## 4. Empirical Evaluation Benchmark Status
 
-The classification and prioritization subsystem was benchmarked against a standardized 31-sample multi-class test dataset spanning all 8 civic categories under variable lighting and structural conditions.
+The baseline feature extraction analyzer represents a rule-based heuristic baseline and is **not yet evaluated on a labelled dataset**.
 
-### 4.1 Global Performance Metrics
-- **Validation Samples**: 31
-- **Correct Predictions**: 27
-- **Overall Accuracy**: **87.1%** (0.8710)
-- **Macro Precision**: **0.884**
-- **Macro Recall**: **0.875**
-- **Macro F1-Score**: **0.876**
-- **Average CPU Inference Latency**: **42.5 ms**
+### 4.1 Evaluation State
+- **Status**: **Unevaluated on labelled ground-truth splits**
+- **Overall Accuracy**: Not yet evaluated on a labelled dataset
+- **Macro Precision**: Not yet evaluated on a labelled dataset
+- **Macro Recall**: Not yet evaluated on a labelled dataset
+- **Macro F1-Score**: Not yet evaluated on a labelled dataset
+- **Real-Time Measured Inference Latency**: ~5–20 ms per image on CPU (measured via `time.perf_counter()`)
 
-### 4.2 Per-Category Breakdown Matrix
-
-| Category Code | Category Label | Precision | Recall | F1-Score | Support |
-|---|---|---|---|---|---|
-| `pothole` | Pothole | 0.88 | 1.00 | 0.93 | 7 |
-| `road_damage` | Road Damage | 0.80 | 0.80 | 0.80 | 5 |
-| `garbage_overflow` | Garbage Overflow | 0.83 | 1.00 | 0.91 | 5 |
-| `illegal_dumping` | Illegal Dumping | 0.75 | 0.75 | 0.75 | 4 |
-| `water_leakage` | Water Leakage | 1.00 | 0.67 | 0.80 | 3 |
-| `blocked_drain` | Blocked Drain | 0.75 | 1.00 | 0.86 | 3 |
-| `broken_streetlight` | Broken Streetlight | 1.00 | 1.00 | 1.00 | 2 |
-| `damaged_infrastructure` | Damaged Infrastructure | 1.00 | 0.50 | 0.67 | 2 |
-| **Macro Average** | | **0.88** | **0.84** | **0.84** | **31** |
+### 4.2 Phase 2 Grounded Evaluation Plan
+During Phase 2, a lightweight convolutional / object detection architecture (YOLOv8n / MobileNetV3) will be fine-tuned on verified public datasets:
+- **Road & Pothole Defect Classes**: Road Damage Dataset (RDD2022) India split.
+- **Litter & Dumping Classes**: TACO (Trash Annotations in Context) Dataset.
+- **Infrastructure Classes**: Zero-shot CLIP fallback with a confidence threshold and an explicit `needs_human_verification` abstain state.
+- **Validation**: Fixed train/val/test splits, per-class confusion matrices, and out-of-distribution evaluation on actual smartphone photographs.
 
 ---
 

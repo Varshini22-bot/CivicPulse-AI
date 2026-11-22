@@ -45,8 +45,8 @@ def test_duplicate_service_haversine():
 
 def test_model_evaluation_pipeline():
     eval_metrics = ModelEvaluator.compute_evaluation_metrics()
-    assert eval_metrics["overall_accuracy"] > 0.80
-    assert eval_metrics["total_test_samples"] > 25
+    assert eval_metrics["evaluation_status"] == "unevaluated"
+    assert "Not yet evaluated on a labelled dataset" in eval_metrics["status_message"]
+    assert eval_metrics["overall_accuracy"] is None
+    assert eval_metrics["total_test_samples"] == 0
     assert len(eval_metrics["classes"]) == 8
-    assert "pothole" in eval_metrics["per_class_metrics"]
-    assert len(eval_metrics["confusion_matrix"]) == 8

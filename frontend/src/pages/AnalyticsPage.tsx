@@ -43,32 +43,42 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
       </div>
 
       {/* Model Benchmark Performance Cards */}
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
+        <Cpu className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <div className="font-semibold text-sm">Computer Vision Analyzer Status: Heuristic Baseline</div>
+          <p className="mt-0.5 text-amber-800 dark:text-amber-300/90 leading-relaxed">
+            {metrics?.status_message || "Not yet evaluated on a labelled dataset."} Baseline feature vectors (Sobel gradients, color saturation, dark pixel depth) run locally. Reproducible evaluation on public benchmark datasets (RDD2022 / TACO) is scheduled for Phase 2.
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Overall Benchmark Accuracy"
-          value={metrics ? `${Math.round(metrics.overall_accuracy * 1000) / 10}%` : '87.1%'}
-          subtitle="Evaluated on 31 multi-class tests"
+          value={metrics && metrics.overall_accuracy !== null ? `${Math.round(metrics.overall_accuracy * 1000) / 10}%` : 'Pending'}
+          subtitle={metrics && metrics.overall_accuracy !== null ? "Measured on benchmark set" : "Not yet evaluated on a labelled dataset"}
           icon={<Cpu className="w-5 h-5 text-teal-600" />}
           accentColor="bg-teal-50 text-teal-600"
         />
         <StatCard
           title="Macro F1-Score"
-          value={metrics ? `${metrics.macro_f1}` : '0.876'}
-          subtitle="Harmonic mean precision & recall"
+          value={metrics && metrics.macro_f1 !== null ? `${metrics.macro_f1}` : 'Pending'}
+          subtitle="Awaiting Phase 2 fine-tuning"
           icon={<Activity className="w-5 h-5 text-indigo-600" />}
           accentColor="bg-indigo-50 text-indigo-600"
         />
         <StatCard
           title="Macro Precision"
-          value={metrics ? `${metrics.macro_precision}` : '0.884'}
-          subtitle="Low false-positive rate"
+          value={metrics && metrics.macro_precision !== null ? `${metrics.macro_precision}` : 'Pending'}
+          subtitle="Awaiting Phase 2 fine-tuning"
           icon={<ShieldCheck className="w-5 h-5 text-emerald-600" />}
           accentColor="bg-emerald-50 text-emerald-600"
         />
         <StatCard
           title="Inference Latency"
-          value="~42.5ms"
-          subtitle="Per image feature vector extraction"
+          value="Measured"
+          subtitle="Per-request execution timing"
           icon={<BarChart3 className="w-5 h-5 text-blue-600" />}
           accentColor="bg-blue-50 text-blue-600"
         />
@@ -100,13 +110,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
                       <td className="px-4 py-3 font-semibold text-slate-900 capitalize">
                         {cat.replace('_', ' ')}
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium">{val.precision}</td>
-                      <td className="px-4 py-3 font-mono font-medium">{val.recall}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-teal-700">{val.f1_score}</td>
-                      <td className="px-4 py-3 text-slate-500">{val.support}</td>
+                      <td className="px-4 py-3 font-mono font-medium">{val.precision ?? '—'}</td>
+                      <td className="px-4 py-3 font-mono font-medium">{val.recall ?? '—'}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-teal-700">{val.f1_score ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-500">{val.support ?? 0}</td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Production Ready
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          Heuristic Baseline
                         </span>
                       </td>
                     </tr>

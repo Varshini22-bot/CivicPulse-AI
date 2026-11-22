@@ -1,4 +1,5 @@
 import os
+import time
 import math
 import hashlib
 from typing import Dict, Any, Tuple, Optional
@@ -55,8 +56,8 @@ class CivicVisionClassifier:
         }
     }
 
-    MODEL_NAME = "CivicPulse-Vision-Ensemble-v1"
-    MODEL_VERSION = "1.2.0"
+    MODEL_NAME = "CivicPulse-Heuristic-Baseline"
+    MODEL_VERSION = "1.0.0"
 
     def __init__(self):
         pass
@@ -130,6 +131,7 @@ class CivicVisionClassifier:
         Run modular inference on civic report.
         Blends visual texture/color signatures with semantic text indicators.
         """
+        t0 = time.perf_counter()
         features = {}
         if image_path and os.path.exists(image_path):
             features = self.extract_visual_features(image_path)
@@ -211,6 +213,7 @@ class CivicVisionClassifier:
             confidence = round(top_prob, 2)
             status = "completed"
 
+        elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         return {
             "predicted_category": predicted_cat,
             "category_name": self.CATEGORIES.get(predicted_cat, {}).get("name", "Needs Review"),
@@ -220,7 +223,7 @@ class CivicVisionClassifier:
             "model_name": self.MODEL_NAME,
             "model_version": self.MODEL_VERSION,
             "processing_status": status,
-            "inference_time_ms": 42.5
+            "inference_time_ms": elapsed_ms
         }
 
 classifier = CivicVisionClassifier()

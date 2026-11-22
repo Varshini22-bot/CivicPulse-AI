@@ -98,13 +98,11 @@ $$\text{Priority Score} = 0.35 \times \text{Severity} + 0.25 \times \text{Safety
 - **60–79**: High Priority (Orange)
 - **80–100**: Critical Public Hazard (Red, blinking pin)
 
-### Model Benchmark Evaluation
-- **Benchmark Dataset**: 31 multi-class standardized evaluation tests based on RDD2022 and TACO open datasets.
-- **Overall Accuracy**: **87.1%**
-- **Macro Precision**: **0.884**
-- **Macro Recall**: **0.875**
-- **Macro F1-Score**: **0.876**
-- See [MODEL_CARD.md](MODEL_CARD.md) for complete evaluation metrics and confusion matrix.
+### Model Evaluation Status
+- **Current Analyzer**: Classical Computer Vision heuristic baseline (Sobel edge gradients, HSV saturation, dark pixel cavity depth, and semantic keyword scoring).
+- **Evaluation Status**: **Not yet evaluated on a labelled dataset.**
+- **Phase 2 Plan**: Fine-tune a lightweight neural detector (YOLOv8n / MobileNetV3) on public datasets (RDD2022 for road damage, TACO for garbage), with zero-shot CLIP fallback and held-out validation splits.
+- See [MODEL_CARD.md](MODEL_CARD.md) for full architecture and limits.
 
 ---
 

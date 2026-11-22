@@ -1,15 +1,15 @@
-# Model Card — CivicPulse Vision Ensemble v1.2.0
+# Model Card — CivicPulse Heuristic Baseline v1.0.0
 
 ## Model Details
-- **Model Name**: CivicPulse-Vision-Ensemble-v1
-- **Model Version**: 1.2.0
-- **Model Type**: Hybrid Visual Feature Extractor + Multimodal Semantic Heuristic Ensemble
+- **Model Name**: CivicPulse-Heuristic-Baseline
+- **Model Version**: 1.0.0
+- **Model Type**: Classical Computer Vision Feature Extractor (Sobel, HSV, dark pixel depth) + Rule-Based Keyword Scoring
 - **Developers**: CivicPulse AI Core Architecture Team
 - **Release Date**: November 2026
-- **License**: Apache 2.0
+- **License**: MIT
 
 ## Intended Use
-- **Primary Use**: Automated civic infrastructure anomaly detection and defect classification from citizen-submitted photographs.
+- **Primary Use**: Baseline civic infrastructure defect triage from citizen-submitted photographs.
 - **Intended Users**: Municipal public works engineers, dispatch coordinators, civic operations administrators.
 - **Decision Support**: This model is explicitly designed as a *decision-support system* to triage, prioritize, and route municipal tickets. It provides explainable confidence scores and does not take irreversible autonomous municipal actions without human administrative confirmation.
 
@@ -23,19 +23,20 @@
 7. **Broken Streetlight** (`broken_streetlight`): Damaged luminaires, unlit municipal fixtures, exposed electrical cables.
 8. **Damaged Public Infrastructure** (`damaged_infrastructure`): Broken pedestrian pavements, shattered bus stops, damaged crash barriers.
 
-## Training & Benchmark Datasets
-- **Source Benchmarks**: 
-  - Road Damage Dataset (RDD2022) — Open access under CC BY-SA 4.0.
-  - TACO (Trash Annotations in Context) Dataset — Open source under CC BY 4.0.
-  - Municipal Urban Infrastructure Open Dataset (Simulated Bengaluru Municipal Wards).
-- **Data Preprocessing**: Spatial edge gradient normalization (Sobel difference profile), luminance standard deviation, HSV color saturation distribution, dark depression pixel ratio, and perceptual hash embedding.
+## Datasets & Feature Processing
+- **Current Pipeline**: Spatial edge gradient normalization (Sobel difference profile), luminance standard deviation, HSV color saturation distribution, dark depression pixel ratio, and perceptual hash embedding.
+- **Planned Phase 2 Training Benchmarks**:
+  - Road Damage Dataset (RDD2022) for road defect classes.
+  - TACO (Trash Annotations in Context) Dataset for litter/dumping.
+  - Zero-shot CLIP fallback with abstain state for infrastructure classes lacking open datasets.
 
 ## Performance Metrics
-- **Overall Accuracy**: 87.1% (Tested on 31 standardized multi-class validation benchmarks)
-- **Macro Precision**: 0.884
-- **Macro Recall**: 0.875
-- **Macro F1-Score**: 0.876
-- **Inference Latency**: ~42.5 ms per image on CPU
+- **Overall Accuracy**: Not yet evaluated on a labelled dataset.
+- **Macro Precision**: Not yet evaluated on a labelled dataset.
+- **Macro Recall**: Not yet evaluated on a labelled dataset.
+- **Macro F1-Score**: Not yet evaluated on a labelled dataset.
+- **Inference Latency**: Real-time measured wall-clock execution time (~5–20 ms per image on CPU).
+- **Note**: The baseline heuristic engine has not been evaluated on a held-out labeled dataset. Genuine precision, recall, and confusion matrices will be established during Phase 2 training.
 
 ## Limitations & Edge Cases
 - **Adverse Lighting**: Extremely dark nighttime photographs without supplementary flashlight illumination may lower classification confidence below the 0.25 threshold, triggering automatic `needs_human_verification` routing.
