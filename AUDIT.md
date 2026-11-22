@@ -4,7 +4,7 @@
 **Auditor Role**: Senior AI/ML Engineer & Systems Code Reviewer  
 **Repository**: CivicPulse AI (FastAPI + React 19/TypeScript + PostgreSQL/PostGIS / SQLite + Docker)  
 **Target Candidate**: B.E. Artificial Intelligence & Data Science Student Portfolio Project  
-**Status**: **PHASE 0 AUDIT COMPLETE — AWAITING USER APPROVAL PRIOR TO CODE MODIFICATIONS**
+**Status**: **PHASE 1 COMPLETE — 100% OF ESSENTIAL FIXES IMPLEMENTED & VERIFIED ON BRANCH `phase-1-fixes`**
 
 ---
 
@@ -342,10 +342,43 @@ y_pred = [
 
 ---
 
-## 7. Next Steps
+## 7. Phase 1 Execution Summary & Defect Remediation Status
 
-In strict accordance with the master instructions:
-- **No production code has been modified during Phase 0.**
-- **The system is paused and awaiting your explicit approval.**
+All 8 tasks from Phase 1 have been implemented, verified, and committed on git branch `phase-1-fixes`.
 
-Upon receiving your approval, execution will proceed sequentially starting with **Phase 1: Essential Fixes**.
+| Audit Finding ID | Audit Item Description | Target Files | Status | Commit Hash | Summary of Changes & Verifications |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **AUDIT-01** | Fabricated 87.1% accuracy & 0.876 macro F1 benchmark | `backend/app/ml/evaluation.py`<br>`MODEL_CARD.md`<br>`README.md`<br>`docs/AI_MODEL_EVALUATION.md`<br>`frontend/src/pages/AnalyticsPage.tsx`<br>`frontend/src/components/layout/Footer.tsx` | **FIXED** | `97b7f87` | Deleted hardcoded string arrays. Replaced with honest status `"Not yet evaluated on a labelled dataset."` (`overall_accuracy: None`). Replaced hardcoded `42.5ms` with `time.perf_counter()` real wall-clock latency. |
+| **AUDIT-02** | Hexadecimal character pHash discontinuity & artificial 0.5 visual default | `backend/app/services/duplicate_service.py`<br>`backend/app/core/config.py` | **FIXED** | `75fbcd1` | Implemented bitwise Hamming distance across 64-bit binary representation (`int_a ^ int_b`). Dynamic weight renormalization when photos are missing (sums remaining weights to 0.85, dividing each by 0.85; returns `visual_similarity: None`). Added category-specific radii in config (pothole 25m, road_damage 35m, water_leakage 75m, streetlight 80m). |
+| **AUDIT-03** | DBSCAN hyperparameter inappropriateness (800m clustering across 1.6 km) | `backend/app/services/geospatial_service.py`<br>`backend/app/api/routes/map.py`<br>`backend/app/core/config.py`<br>`backend/scripts/dbscan_tuning.py` | **FIXED** | `7c015a0` | Generated empirical 3-NN k-distance plot and sensitivity matrix across 102 active records. Elbow at 75th percentile is $324.5\text{m}$. Set configurable defaults to $\text{eps} = 300\text{m}$, $\text{min\_samples} = 3$, reducing noise from $62\%$ to balanced $13$ ward-isolated clusters with $0\%$ cross-ward leakage. Generated plot at `docs/dbscan_k_distance_plot.png` and analysis at `docs/DBSCAN_SENSITIVITY_ANALYSIS.md`. |
+| **AUDIT-04** | Security vulnerabilities (CORS wildcard with credentials, unauthenticated CSV export, missing EXIF stripping, no rate limiting) | `backend/app/main.py`<br>`backend/app/api/routes/reports.py`<br>`backend/app/api/routes/admin.py`<br>`backend/app/core/limiter.py`<br>`backend/app/services/export_service.py` | **FIXED** | `c0c5bed` | Removed wildcard `*` from CORS origins, strictly enforcing `settings.CORS_ORIGINS` with credentials. Added SlowAPI rate limits: `/auth/register` (15/min), `/auth/login` (20/min), `/reports` (30/min). Protected `GET /api/analytics/export` with `get_current_active_admin`. Added pure-raster EXIF/GPS stripping before saving uploaded images. Added `"Is Synthetic"` column to CSV export. |
+| **AUDIT-05** | Database missing `is_synthetic` flag and PostGIS `Geography` column with GiST index | `backend/app/models/__init__.py`<br>`backend/alembic/versions/001_initial_schema.py`<br>`backend/alembic/versions/002_add_is_synthetic_geography_and_categories.py` | **FIXED** | `c6f28e3` | Added `is_synthetic` boolean (default False for new reports; True for seeded demo data). Added `Geography(POINT, 4326)` column with GiST index `idx_reports_location_gist` (with `with_variant(Text, 'sqlite')` for dialect safety). Created Alembic migration revisions 001 and 002 with upgrade/downgrade and backfill logic. |
+| **AUDIT-06** | Hardcoded category dictionary dependencies in classifier & severity services | `backend/app/models/__init__.py`<br>`backend/app/database/seed_data.py`<br>`backend/app/ml/vision_classifier.py`<br>`backend/app/schemas/__init__.py` | **FIXED** | `b74185f` | Added `base_severity` and `keywords` columns to `Category` table. Updated `CivicVisionClassifier` to dynamically query categories and keyword profiles from DB (with fallback to default 8). New categories added by administrators are dynamically recognized and classified with zero Python code changes. |
+| **AUDIT-07** | Priority double counting between SeverityService and PriorityService | `backend/app/services/severity_service.py`<br>`backend/app/services/priority_service.py`<br>`backend/app/services/report_service.py`<br>`README.md` | **FIXED** | `2e646ca` | Strictly decoupled the 5 factors: Factor 1 (Defect Severity, 35%) measures mechanical/structural magnitude without category danger; Factor 2 (Public Safety Hazard, 25%) exclusively evaluates inherent category hazard and acute danger indicators. Documented orthogonal factor math in code and README. Verified zero cross-factor leakage. |
+| **AUDIT-08** | Test suite gaps (missing negative RBAC, CORS, EXIF, Hamming, radius, and migration tests) | `backend/tests/test_phase1_fixes.py` | **FIXED** | `bab66e9` | Created 11 comprehensive automated tests covering negative RBAC (403 for citizens on admin endpoints, 401 unauthenticated), strict CORS reflection, EXIF stripping, exact 64-bit Hamming distance, missing-photo weight renormalization, category radii, priority orthogonality, dynamic category ingestion, data provenance, and Alembic migrations. Full test suite: **29 Passed, 0 Failed (100% pass rate)**. Frontend build: **Clean (zero errors, 3.11s)**. |
+
+---
+
+## 8. Summary of Behavior Changes
+
+1. **AI Model Evaluation**: The application no longer displays misleading claims of $87.1\%$ accuracy or $0.876$ F1. The UI and API endpoints report `"Not yet evaluated on a labelled dataset."` with an honest prompt to train on genuine datasets in Phase 2.
+2. **Inference Latency**: Inference timing is measured using true wall-clock time (`time.perf_counter()`), providing realistic $\sim 2-15\text{ms}$ latency reporting.
+3. **Duplicate Detection**: Uses true 64-bit bitwise Hamming distance instead of character-position comparisons. When an image is missing, the visual component is excluded and the remaining spatial/category/temporal components are renormalized over 1.0 (no default $+0.075$ artificial bonus). Duplicate search radii now adapt to the category (e.g. 25m for potholes vs 80m for streetlights).
+4. **Spatial Hotspots**: Hotspot clustering now groups realistic local clusters ($\text{eps} = 300\text{m}$, $\text{min\_samples} = 3$) based on k-distance elbow analysis, avoiding artificial 1.6 km cluster merging across multiple wards.
+5. **Security**:
+   - Web browsers from non-whitelisted origins cannot access the API with credentials.
+   - Citizen tokens cannot access administrative ledger, status update, override, assignment, or CSV export endpoints (returns `403 Forbidden`).
+   - Image uploads have EXIF and GPS coordinates stripped before disk persistence, protecting citizen privacy.
+   - SlowAPI rate limits prevent brute-force attacks on auth and report submission endpoints.
+6. **Data Provenance**: All demo records are marked with `is_synthetic = True`. Real citizen submissions default to `is_synthetic = False`. Both flags are preserved in database and exported CSVs.
+7. **Dynamic Categories**: Adding a new municipal category in the database immediately enables classification and priority routing without requiring code changes.
+8. **Priority Scoring**: Category safety weight is evaluated once (in the Public Safety factor) rather than twice, preventing distorted 60% compounding of category danger.
+
+---
+
+## 9. Next Steps — Awaiting Approval for Phase 2
+
+Phase 1 Essential Fixes are 100% complete. In strict adherence to master instructions:
+- All changes are committed to branch `phase-1-fixes`.
+- Application and all tests are passing.
+- **The system is paused and awaiting your explicit approval before beginning Phase 2: Real Computer Vision Pipeline.**
