@@ -51,6 +51,12 @@ class DuplicateService:
         return max(0.0, min(1.0, 1.0 - (dist / float(total_bits))))
 
     @classmethod
+    def is_within_category_radius(cls, distance_meters: float, category_code: str) -> bool:
+        """Checks if a distance is within the category-specific duplicate radius."""
+        max_radius = settings.DUPLICATE_CATEGORY_RADII.get(category_code, settings.DUPLICATE_RADIUS_METERS)
+        return distance_meters <= max_radius
+
+    @classmethod
     def evaluate_duplicate_pair(
         cls,
         report_a: Report,
