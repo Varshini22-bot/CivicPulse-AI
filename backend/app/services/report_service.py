@@ -101,7 +101,9 @@ class ReportService:
             location_text=f"{address or ''} {area or ''}",
             supporting_reports_count=1,
             created_at=datetime.now(timezone.utc),
-            description=description
+            description=description,
+            latitude=latitude,
+            longitude=longitude
         )
 
         # 5. Create Report entity
@@ -122,6 +124,7 @@ class ReportService:
             priority_score=prio_result["final_score"],
             priority_level=prio_result["priority_level"],
             is_synthetic=False,
+            location_risk_poi_details=prio_result.get("matched_pois", []),
             location=f"POINT({longitude} {latitude})",
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
@@ -149,6 +152,10 @@ class ReportService:
 
         # 7. Save Priority Score record
         comps = prio_result["components"]
+        poi_bonus = 0.0
+        if prio_result.get("matched_pois"):
+            poi_bonus = float(prio_result["matched_pois"][0].get("bonus_applied", 0.0))
+
         prio_record = PriorityScore(
             report_id=report.id,
             severity_component=comps["severity"],
@@ -156,12 +163,15 @@ class ReportService:
             location_risk_component=comps["location_risk"],
             community_impact_component=comps["community_impact"],
             age_component=comps["issue_age"],
+            age_saturating_score=comps.get("issue_age"),
+            poi_proximity_bonus=poi_bonus,
             final_score=prio_result["final_score"],
             priority_level=prio_result["priority_level"],
             explanation_json={
                 "reasons": prio_result["reasons"],
                 "weights": prio_result["weights"],
-                "severity_detail": sev_result
+                "severity_detail": sev_result,
+                "matched_pois": prio_result.get("matched_pois", [])
             },
             scoring_version=prio_result["scoring_version"]
         )
@@ -251,6 +261,18 @@ class ReportService:
             report.resolution_image_url = resolution_image_url
         if new_status == "Resolved":
             report.resolved_at = datetime.now(timezone.utc)
+            if resolution_image_url:
+                try:
+                    from app.services.resolution_verification_service import ResolutionVerificationService
+                    verif = ResolutionVerificationService.verify_resolution(
+                        db=db,
+                        report=report,
+                        resolution_image_url=resolution_image_url
+                    )
+                    report.resolution_verification_status = verif.get("status")
+                    report.resolution_verification_details = verif
+                except Exception:
+                    report.resolution_verification_status = "unverifiable"
 
         # Audit log
         audit = AuditLog(

@@ -1,0 +1,142 @@
+{
+  "dataset": "Bengaluru Critical Infrastructure Points of Interest (POIs)",
+  "attribution": "Map data © OpenStreetMap contributors, licensed under ODbL 1.0 (opendatacommons.org/licenses/odbl)",
+  "crs": "EPSG:4326",
+  "pois": [
+    {
+      "id": "POI-HOSP-001",
+      "name": "St. John's Medical College Hospital",
+      "category": "hospital",
+      "ward": "Koramangala",
+      "latitude": 12.9315,
+      "longitude": 77.6210,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-HOSP-002",
+      "name": "Manipal Hospital (Old Airport Road)",
+      "category": "hospital",
+      "ward": "HAL",
+      "latitude": 12.9585,
+      "longitude": 77.6485,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-HOSP-003",
+      "name": "Apollo Hospitals",
+      "category": "hospital",
+      "ward": "Bannerghatta Road",
+      "latitude": 12.8935,
+      "longitude": 77.5985,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-HOSP-004",
+      "name": "Fortis Hospital",
+      "category": "hospital",
+      "ward": "Bannerghatta Road",
+      "latitude": 12.8945,
+      "longitude": 77.5980,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-HOSP-005",
+      "name": "KC General Hospital",
+      "category": "hospital",
+      "ward": "Malleshwaram",
+      "latitude": 13.0035,
+      "longitude": 77.5695,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-HOSP-006",
+      "name": "Cloudnine Hospital",
+      "category": "hospital",
+      "ward": "Indiranagar",
+      "latitude": 12.9780,
+      "longitude": 77.6415,
+      "buffer_meters": 200.0
+    },
+    {
+      "id": "POI-SCH-001",
+      "name": "National Public School",
+      "category": "school",
+      "ward": "Indiranagar",
+      "latitude": 12.9720,
+      "longitude": 77.6435,
+      "buffer_meters": 200.0
+    },
+    {
+      "id": "POI-SCH-002",
+      "name": "Christ (Deemed to be University)",
+      "category": "school",
+      "ward": "Hosur Road",
+      "latitude": 12.9340,
+      "longitude": 77.6060,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-SCH-003",
+      "name": "St. Joseph's University",
+      "category": "school",
+      "ward": "Richmond Town",
+      "latitude": 12.9620,
+      "longitude": 77.5980,
+      "buffer_meters": 200.0
+    },
+    {
+      "id": "POI-SCH-004",
+      "name": "Bethany High School",
+      "category": "school",
+      "ward": "Koramangala",
+      "latitude": 12.9365,
+      "longitude": 77.6240,
+      "buffer_meters": 200.0
+    },
+    {
+      "id": "POI-TRANS-001",
+      "name": "Majestic Kempegowda Bus Station & Metro Interchange",
+      "category": "transit_station",
+      "ward": "Gandhinagar",
+      "latitude": 12.9765,
+      "longitude": 77.5725,
+      "buffer_meters": 300.0
+    },
+    {
+      "id": "POI-TRANS-002",
+      "name": "Indiranagar Metro Station",
+      "category": "transit_station",
+      "ward": "Indiranagar",
+      "latitude": 12.9785,
+      "longitude": 77.6385,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-TRANS-003",
+      "name": "Silk Board Junction Interchange",
+      "category": "transit_station",
+      "ward": "HSR Layout",
+      "latitude": 12.9175,
+      "longitude": 77.6235,
+      "buffer_meters": 300.0
+    },
+    {
+      "id": "POI-TRANS-004",
+      "name": "Koramangala Bus Station",
+      "category": "transit_station",
+      "ward": "Koramangala",
+      "latitude": 12.9345,
+      "longitude": 77.6185,
+      "buffer_meters": 250.0
+    },
+    {
+      "id": "POI-TRANS-005",
+      "name": "Yeshwanthpur Railway & Metro Station",
+      "category": "transit_station",
+      "ward": "Yeshwanthpur",
+      "latitude": 13.0235,
+      "longitude": 77.5505,
+      "buffer_meters": 300.0
+    }
+  ]
+}

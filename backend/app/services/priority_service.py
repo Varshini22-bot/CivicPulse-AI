@@ -1,36 +1,161 @@
+import os
+import json
+import math
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from app.core.config import settings
+from app.services.duplicate_service import DuplicateService
+
 
 class PriorityService:
     """
-    Configurable, explainable issue-priority scoring engine.
+    Priority Scoring Engine v2 (Continuous Aging & Spatial POI Proximity).
     Computes normalized component metrics (0 to 100) and weighted composite score:
     Priority = 0.35*Severity + 0.25*Safety + 0.15*Location + 0.15*Community + 0.10*Age
 
-    ORTHOGONAL FACTOR SEPARATION (Eliminates Double Counting):
+    ORTHOGONAL FACTOR SEPARATION & CONTINUOUS DYNAMICS:
     1. Physical Defect Severity (35%): Measures mechanical/structural magnitude of the defect (1-10 mapped to 10-100).
-       Evaluated independently of hazard/safety risk.
-    2. Public Safety Threat (25%): Measures inherent category hazard and acute danger to human life / bodily harm (0-100).
-       Category safety hazard profile is evaluated exclusively here.
-    3. Location Vulnerability (15%): Proximity to schools, hospitals, transit hubs, and arterial corridors (0-100).
-    4. Community Impact (15%): Citizen escalations and verified duplicate clusters (0-100).
-    5. Issue Age (10%): SLA turnaround urgency escalation over time (0-100).
+    2. Public Safety Threat (25%): Measures inherent category hazard and acute danger indicators (0-100).
+    3. Location Vulnerability (15%): Spatial proximity to real OpenStreetMap POIs (hospitals, schools, transit interchanges).
+    4. Community Impact (15%): Supporting duplicate reports and neighborhood escalation (0-100).
+    5. Continuous Issue Age (10%): Saturating asymptotic escalation: P_age = 100 * (1 - e^(-age_hours / tau)).
     """
 
-    SCORING_VERSION = "2.2.0"
+    SCORING_VERSION = "3.0.0"
 
-    # Known high-risk civic corridors/infrastructure in Bengaluru (simulated municipal zones)
-    HIGH_RISK_ZONES = [
+    # Time constant tau for continuous saturating age: 72 hours (3 days)
+    AGE_TAU_HOURS = 72.0
+
+    HIGH_RISK_KEYWORDS = [
         "hospital", "school", "college", "metro", "bus terminal", "railway",
-        "market", "pedestrian crossing", "junction", "arterial", "expressway",
-        "mg road", "indiranagar 100ft", "koramangala 80ft", "outer ring road"
+        "market", "pedestrian crossing", "junction", "arterial", "expressway"
     ]
 
     ACUTE_HAZARD_KEYWORDS = [
         "accident", "danger", "electric", "live wire", "open manhole", "death",
         "injury", "bleeding", "toxic", "burst", "collapse"
     ]
+
+    _cached_pois: Optional[List[Dict[str, Any]]] = None
+
+    @classmethod
+    def _load_pois(cls) -> List[Dict[str, Any]]:
+        if cls._cached_pois is not None:
+            return cls._cached_pois
+
+        poi_path = "data/osm/bengaluru_pois.json"
+        if not os.path.exists(poi_path):
+            alt_path = os.path.join("..", poi_path)
+            if os.path.exists(alt_path):
+                poi_path = alt_path
+            else:
+                cls._cached_pois = []
+                return []
+
+        try:
+            with open(poi_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                cls._cached_pois = data.get("pois", [])
+        except Exception:
+            cls._cached_pois = []
+
+        return cls._cached_pois
+
+    @classmethod
+    def compute_continuous_age_score(cls, created_at: Optional[datetime]) -> Tuple[float, float]:
+        """
+        Computes continuous saturating age score:
+        P_age = 100 * (1 - exp(-age_hours / tau))
+        Returns (age_hours, score_0_to_100).
+        """
+        now = datetime.now(timezone.utc)
+        if created_at:
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            age_hours = max(0.0, (now - created_at).total_seconds() / 3600.0)
+        else:
+            age_hours = 0.0
+
+        score = 100.0 * (1.0 - math.exp(-age_hours / cls.AGE_TAU_HOURS))
+        return age_hours, round(min(100.0, max(0.0, score)), 1)
+
+    @classmethod
+    def compute_location_risk(
+        cls,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        location_text: Optional[str] = ""
+    ) -> Tuple[float, List[str], List[Dict[str, Any]]]:
+        """
+        Computes location risk score (0 to 100) using real OpenStreetMap POIs when coordinates exist,
+        falling back to text keywords.
+        """
+        reasons: List[str] = []
+        matched_pois: List[Dict[str, Any]] = []
+        base_risk = 35.0  # Urban sector baseline
+
+        if latitude is not None and longitude is not None:
+            pois = cls._load_pois()
+            proximity_bonuses = 0.0
+
+            for poi in pois:
+                p_lat = poi.get("latitude")
+                p_lon = poi.get("longitude")
+                if p_lat is None or p_lon is None:
+                    continue
+
+                dist = DuplicateService.haversine_distance(latitude, longitude, p_lat, p_lon)
+                category = poi.get("category", "")
+                name = poi.get("name", "POI")
+                buffer = poi.get("buffer_meters", 250.0)
+
+                if dist <= buffer:
+                    bonus = 0.0
+                    if category == "hospital":
+                        bonus = 35.0 if dist <= 100.0 else 25.0
+                    elif category == "school":
+                        bonus = 30.0 if dist <= 100.0 else 20.0
+                    elif category == "transit_station":
+                        bonus = 30.0 if dist <= 150.0 else 18.0
+                    else:
+                        bonus = 15.0
+
+                    proximity_bonuses = max(proximity_bonuses, bonus)
+                    matched_pois.append({
+                        "name": name,
+                        "category": category,
+                        "distance_meters": round(dist, 1),
+                        "bonus_applied": bonus
+                    })
+
+            if matched_pois:
+                score = min(100.0, base_risk + proximity_bonuses)
+                nearest = min(matched_pois, key=lambda x: x["distance_meters"])
+                reasons.append(
+                    f"OSM Proximity: Located {nearest['distance_meters']:.0f}m from {nearest['name']} "
+                    f"({nearest['category'].replace('_', ' ')} zone, +{nearest['bonus_applied']:.0f}% risk)."
+                )
+                return round(score, 1), reasons, matched_pois
+
+        # Fallback to address keywords if coordinates not near loaded POIs or missing
+        loc_lower = (location_text or "").lower()
+        matched_keyword = None
+        for kw in cls.HIGH_RISK_KEYWORDS:
+            if kw in loc_lower:
+                matched_keyword = kw
+                break
+
+        if matched_keyword:
+            score = 85.0
+            reasons.append(f"Identified critical public transit / pedestrian zone near '{matched_keyword}'.")
+        elif location_text:
+            score = 45.0
+            reasons.append("Standard municipal residential/commercial sector location risk.")
+        else:
+            score = 30.0
+            reasons.append("Specific location context absent; default baseline risk applied.")
+
+        return score, reasons, []
 
     @classmethod
     def calculate_priority(
@@ -40,7 +165,9 @@ class PriorityService:
         location_text: Optional[str] = "",
         supporting_reports_count: int = 1,
         created_at: Optional[datetime] = None,
-        description: Optional[str] = ""
+        description: Optional[str] = "",
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Calculate composite priority score (0 to 100) with explainable component weights.
@@ -48,7 +175,6 @@ class PriorityService:
         reasons: List[str] = []
 
         # 1. Physical Defect Severity component (0 - 100)
-        # Severity 1-10 mapped to 10-100
         severity_comp = float(min(10, max(1, severity_score))) * 10.0
         reasons.append(f"Physical defect severity evaluated at {severity_score}/10 (normalized score: {severity_comp:.1f}).")
 
@@ -67,25 +193,13 @@ class PriorityService:
             safety_comp = base_safety
             reasons.append(f"Public safety threat: Standard category safety profile applied ({safety_comp:.0f}%).")
 
-        # 3. Location Risk component (0 - 100)
-        loc_lower = (location_text or "").lower()
-        has_location_risk = False
-        location_comp = 40.0  # Default neutral urban baseline
-
-        for zone in cls.HIGH_RISK_ZONES:
-            if zone in loc_lower:
-                location_comp = 85.0
-                has_location_risk = True
-                reasons.append(f"Identified critical public transit / pedestrian zone near '{zone}'.")
-                break
-
-        if not has_location_risk:
-            if location_text:
-                location_comp = 45.0
-                reasons.append("Standard municipal residential/commercial sector location risk.")
-            else:
-                location_comp = 30.0
-                reasons.append("Specific location context absent; default baseline risk applied.")
+        # 3. Location Risk component (0 - 100) with real POIs
+        location_comp, loc_reasons, matched_pois = cls.compute_location_risk(
+            latitude=latitude,
+            longitude=longitude,
+            location_text=location_text
+        )
+        reasons.extend(loc_reasons)
 
         # 4. Community Impact (duplicate / recurring report count) (0 - 100)
         if supporting_reports_count <= 1:
@@ -101,36 +215,18 @@ class PriorityService:
             community_comp = 98.0
             reasons.append(f"Significant community escalation ({supporting_reports_count} reports filed in vicinity).")
 
-        # 5. Issue Age component (0 - 100)
-        now = datetime.now(timezone.utc)
-        if created_at:
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            age_hours = (now - created_at).total_seconds() / 3600.0
-        else:
-            age_hours = 0.0
-
-        if age_hours < 24.0:
-            age_comp = 20.0
-            reasons.append(f"Reported recently ({age_hours:.1f} hours ago).")
-        elif age_hours < 72.0:
-            age_comp = 50.0
-            reasons.append(f"Pending resolution for {age_hours/24.0:.1f} days.")
-        elif age_hours < 168.0:
-            age_comp = 75.0
-            reasons.append(f"Exceeding standard 3-day turnaround ({age_hours/24.0:.1f} days active).")
-        else:
-            age_comp = 95.0
-            reasons.append(f"Critical turnaround delay ({age_hours/24.0:.1f} days unresolved).")
+        # 5. Continuous Issue Age component (0 - 100): P_age = 100 * (1 - e^(-age_hours / 72))
+        age_hours, age_comp = cls.compute_continuous_age_score(created_at)
+        reasons.append(f"Continuous issue aging: active for {age_hours:.1f} hours (saturating escalation score: {age_comp:.1f}/100).")
 
         # Composite Score Calculation (Normalized Weights)
         # Weights: Severity=0.35, Safety=0.25, Location=0.15, Community=0.15, Age=0.10
         raw_final = (
-            (0.35 * severity_comp) +
-            (0.25 * safety_comp) +
-            (0.15 * location_comp) +
-            (0.15 * community_comp) +
-            (0.10 * age_comp)
+            (settings.WEIGHT_SEVERITY * severity_comp) +
+            (settings.WEIGHT_SAFETY * safety_comp) +
+            (settings.WEIGHT_LOCATION_RISK * location_comp) +
+            (settings.WEIGHT_COMMUNITY_IMPACT * community_comp) +
+            (settings.WEIGHT_AGE * age_comp)
         )
         final_score = round(max(0.0, min(100.0, raw_final)), 1)
 
@@ -147,20 +243,22 @@ class PriorityService:
         return {
             "final_score": final_score,
             "priority_level": priority_level,
+            "scoring_version": cls.SCORING_VERSION,
             "components": {
-                "severity": severity_comp,
-                "safety": safety_comp,
-                "location_risk": location_comp,
-                "community_impact": community_comp,
-                "issue_age": age_comp
+                "severity": round(severity_comp, 1),
+                "safety": round(safety_comp, 1),
+                "location_risk": round(location_comp, 1),
+                "community_impact": round(community_comp, 1),
+                "issue_age": round(age_comp, 1),
+                "age_hours": round(age_hours, 1)
             },
             "weights": {
-                "severity": 0.35,
-                "safety": 0.25,
-                "location_risk": 0.15,
-                "community_impact": 0.15,
-                "issue_age": 0.10
+                "severity": settings.WEIGHT_SEVERITY,
+                "safety": settings.WEIGHT_SAFETY,
+                "location_risk": settings.WEIGHT_LOCATION_RISK,
+                "community_impact": settings.WEIGHT_COMMUNITY_IMPACT,
+                "age": settings.WEIGHT_AGE
             },
-            "reasons": reasons,
-            "scoring_version": cls.SCORING_VERSION
+            "matched_pois": matched_pois,
+            "reasons": reasons
         }

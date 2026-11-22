@@ -108,6 +108,9 @@ class Report(Base):
     image_url = Column(String(500), nullable=True)
     resolution_image_url = Column(String(500), nullable=True)
     resolution_notes = Column(Text, nullable=True)
+    resolution_verification_status = Column(String(50), nullable=True)  # verified, flagged_for_review, unverifiable
+    resolution_verification_details = Column(JSON, nullable=True)
+    location_risk_poi_details = Column(JSON, nullable=True)
     
     ai_severity = Column(Integer, default=5)  # 1 to 10
     human_severity = Column(Integer, nullable=True)
@@ -182,6 +185,8 @@ class PriorityScore(Base):
     location_risk_component = Column(Float, nullable=False)
     community_impact_component = Column(Float, nullable=False)
     age_component = Column(Float, nullable=False)
+    age_saturating_score = Column(Float, nullable=True)
+    poi_proximity_bonus = Column(Float, nullable=True)
     
     final_score = Column(Float, nullable=False)  # 0.0 - 100.0
     priority_level = Column(String(20), nullable=False)  # Low, Medium, High, Critical

@@ -465,3 +465,37 @@ All deliverables for Phase 3 have been completed, verified, and committed on git
 7. **Test Suite Status**: **46 Passed, 1 Skipped (PostGIS Docker)** across 47 tests. Frontend build clean in 1.57s.
 8. **Release**: Merged into `main`, tagged `v0.3`. Fully documented in `PHASE_3_REPORT.md`.
 
+---
+
+## 12. Phase 4: Priority v2 & Resolution Verification Execution & Verification
+
+All deliverables for Phase 4 have been completed, verified, and committed on git branch `phase-4-priority-resolution`.
+
+### 12.1 Key Deliverables Implemented
+1. **Continuous Saturating Age Escalation (`backend/app/services/priority_service.py`)**:
+   - Replaced fragile discrete age steps with a continuous exponential saturation curve:
+     $$P_{\text{age}}(\Delta t) = 100 \times \left(1 - \exp\left(-\frac{\Delta t}{72.0}\right)\right)$$
+   - Eliminates step-boundary rank instability while providing monotonic escalation ($0\text{h} \to 0$, $24\text{h} \to 28.3$, $72\text{h} \to 63.2$, $168\text{h} \to 90.3$).
+2. **OpenStreetMap POI-Based Location Risk**:
+   - Curated `data/osm/bengaluru_pois.json` (30 high-priority facilities: hospitals, emergency centers, school zones, transit terminals) with ODbL attribution.
+   - Calculates real geodesic proximity bonus (+35% hospitals, +30% schools/transit $\le 100\text{m}$) with graceful fallback to keyword heuristic when outside POI coverage.
+3. **Priority Sensitivity Monte Carlo Benchmark (`ml/eval/priority_sensitivity.py`)**:
+   - Evaluated rank stability across $M=200$ iterations and $N=100$ reports under uniform weight jitter $\pm 5\%, \pm 10\%, \pm 15\%, \pm 20\%$.
+   - Measured Kendall's $\tau$:
+     - $\pm 5\%$ Jitter: $\tau = 0.990$ (95% CI: [0.979, 0.996])
+     - $\pm 10\%$ Jitter: $\tau = 0.978$ (95% CI: [0.963, 0.995])
+     - $\pm 15\%$ Jitter: $\tau = 0.969$ (95% CI: [0.942, 0.989])
+     - $\pm 20\%$ Jitter: $\tau = 0.955$ (95% CI: [0.917, 0.983])
+   - Confirms "Very High" rank stability even under significant weight variations.
+4. **Automated Resolution Verification Engine (`backend/app/services/resolution_verification_service.py`)**:
+   - Three-way verification: Spatial proximity ($\le 50\text{m}$), OpenCLIP visual scene background similarity ($\ge 55\%$), and vision defect disappearance check.
+   - Outputs status: `verified`, `flagged_for_review`, or `unverifiable`.
+   - **Policy Guard**: Never auto-rejects ticket closure; flags discrepancies for administrative supervisor audit.
+5. **Privacy Protection & PII Redaction (`backend/app/services/privacy_service.py`)**:
+   - Automated best-effort Gaussian blurring for detected faces and vehicle license plates on upload using OpenCV Haar Cascades.
+6. **Alembic Migration (`005_add_priority_v2_and_resolution_verification.py`)**:
+   - Added `resolution_verification_status`, `resolution_verification_details`, `location_risk_poi_details` to `reports`, and `age_saturating_score`, `poi_proximity_bonus` to `priority_scores`.
+7. **Test Suite Status**: **53 Passed, 1 Skipped (PostGIS Docker)** across 54 tests. Frontend build clean in 1.93s.
+8. **Release**: Merged into `main`, tagged `v0.4`. Fully documented in `PHASE_4_REPORT.md`.
+
+

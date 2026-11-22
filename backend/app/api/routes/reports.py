@@ -145,6 +145,9 @@ def serialize_report_detail(r: Report) -> dict:
     base["duplicate_candidates"] = duplicates
     base["audit_history"] = audits
     base["resolution_notes"] = r.resolution_notes
+    base["resolution_verification_status"] = r.resolution_verification_status
+    base["resolution_verification_details"] = r.resolution_verification_details
+    base["location_risk_poi_details"] = r.location_risk_poi_details
     return base
 
 @router.get("/categories", response_model=List[CategoryOut])
@@ -225,6 +228,13 @@ async def submit_report(
 
             save_format = "JPEG" if ext in [".jpg", ".jpeg"] else ("PNG" if ext == ".png" else "WEBP")
             clean_img.save(target_path, format=save_format)
+
+            # Apply best-effort face & license plate privacy blurring
+            try:
+                from app.services.privacy_service import PrivacyService
+                PrivacyService.anonymize_image(target_path)
+            except Exception:
+                pass
 
         image_path = target_path
 

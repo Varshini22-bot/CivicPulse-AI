@@ -1,0 +1,63 @@
+{
+  "analysis_name": "Priority Formula Sensitivity & Rank Correlation Benchmark",
+  "sample_size": 30,
+  "iterations_per_level": 20,
+  "baseline_weights": {
+    "severity": 0.35,
+    "safety": 0.25,
+    "location_risk": 0.15,
+    "community_impact": 0.15,
+    "issue_age": 0.1
+  },
+  "results": {
+    "5%": {
+      "jitter_percentage": "5%",
+      "mean_kendall_tau": 0.975,
+      "tau_std": 0.011,
+      "tau_95ci": [
+        0.956,
+        0.993
+      ],
+      "min_tau": 0.956,
+      "mean_top10_overlap": 0.92,
+      "rank_stability": "Very High"
+    },
+    "10%": {
+      "jitter_percentage": "10%",
+      "mean_kendall_tau": 0.963,
+      "tau_std": 0.015,
+      "tau_95ci": [
+        0.937,
+        0.984
+      ],
+      "min_tau": 0.937,
+      "mean_top10_overlap": 0.91,
+      "rank_stability": "Very High"
+    },
+    "15%": {
+      "jitter_percentage": "15%",
+      "mean_kendall_tau": 0.958,
+      "tau_std": 0.016,
+      "tau_95ci": [
+        0.937,
+        0.988
+      ],
+      "min_tau": 0.937,
+      "mean_top10_overlap": 0.9,
+      "rank_stability": "Very High"
+    },
+    "20%": {
+      "jitter_percentage": "20%",
+      "mean_kendall_tau": 0.936,
+      "tau_std": 0.026,
+      "tau_95ci": [
+        0.883,
+        0.97
+      ],
+      "min_tau": 0.876,
+      "mean_top10_overlap": 0.875,
+      "rank_stability": "Very High"
+    }
+  },
+  "conclusion": "Rank stability is robust (mean Kendall's tau >= 0.88 across up to 20% weight perturbation). Municipal work-order priority ordering is resilient to heuristic weight jitter."
+}
