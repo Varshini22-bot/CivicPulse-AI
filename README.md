@@ -90,11 +90,18 @@ flowchart TD
 7. `broken_streetlight`: Inoperative street luminaires and damaged electrical poles.
 8. `damaged_infrastructure`: Broken pedestrian footpath slabs, missing manhole covers, and bus shelters.
 
-### 5-Factor Priority Scoring Formula
-$$\text{Priority Score} = 0.35 \times \text{Severity} + 0.25 \times \text{Safety} + 0.15 \times \text{Location Risk} + 0.15 \times \text{Community Impact} + 0.10 \times \text{Issue Age}$$
+### 5-Factor Orthogonal Priority Scoring Formula
+$$\text{Priority Score} = 0.35 \times \text{Defect Severity} + 0.25 \times \text{Public Safety} + 0.15 \times \text{Location Risk} + 0.15 \times \text{Community Impact} + 0.10 \times \text{Issue Age}$$
 
-- **0–39**: Low Priority (Green)
-- **40–59**: Medium Priority (Yellow)
+To prevent double counting category hazard between severity estimation and priority scoring, factors are strictly separated:
+- **Factor 1: Physical Defect Severity (35% weight)**: Measures strictly the mechanical/structural magnitude of the physical defect (1–10 scale mapped to 10–100) based on visual edge density, dark-pixel cavity ratio, and structural degradation descriptors. It does *not* incorporate public safety or accident risk.
+- **Factor 2: Public Safety Hazard (25% weight)**: Measures the threat to human life, vehicular safety, and acute bodily hazards (0–100 scale). Inherent category hazard profile is evaluated exclusively here, elevated by acute danger keywords (e.g. live wire, open manhole, collapse).
+- **Factor 3: Location Risk (15% weight)**: Transit corridors, schools, hospitals, and arterial junctions (0–100 scale).
+- **Factor 4: Community Impact (15% weight)**: Independent citizen report frequency and duplicate cluster density (0–100 scale).
+- **Factor 5: Issue Age (10% weight)**: Turnaround SLA escalation over time (0–100 scale).
+
+- **0–34**: Low Priority (Green)
+- **35–59**: Medium Priority (Yellow)
 - **60–79**: High Priority (Orange)
 - **80–100**: Critical Public Hazard (Red, blinking pin)
 

@@ -68,7 +68,8 @@ class ReportService:
         vision_result = classifier.predict(
             image_path=image_path,
             user_category_hint=category_code,
-            description=description
+            description=description,
+            db=db
         )
 
         pred_cat_code = vision_result["predicted_category"]
@@ -84,7 +85,8 @@ class ReportService:
             category_code=pred_cat_code,
             confidence=confidence,
             visual_features=visual_features,
-            description=description
+            description=description,
+            db=db
         )
         ai_severity = sev_result["severity_score"]
 
@@ -94,7 +96,8 @@ class ReportService:
             category_safety_weight=category.safety_weight if category else 0.5,
             location_text=f"{address or ''} {area or ''}",
             supporting_reports_count=1,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
+            description=description
         )
 
         # 5. Create Report entity
@@ -114,6 +117,8 @@ class ReportService:
             ai_severity=ai_severity,
             priority_score=prio_result["final_score"],
             priority_level=prio_result["priority_level"],
+            is_synthetic=False,
+            location=f"POINT({longitude} {latitude})",
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
