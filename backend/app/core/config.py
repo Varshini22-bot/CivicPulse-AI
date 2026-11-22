@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     }
     DUPLICATE_TIME_WINDOW_DAYS: int = 30     # Within 30 days
     DUPLICATE_SCORE_THRESHOLD: float = 0.65  # 65% composite match
+
+    # Geospatial DBSCAN Clustering Parameters (Configured from k-distance elbow analysis)
+    DBSCAN_EPS_METERS: float = 300.0  # 300m neighborhood radius
+    DBSCAN_MIN_SAMPLES: int = 3
     
     # Civic Hub Coordinates (Default: Bengaluru Center)
     DEFAULT_LAT: float = 12.9716

@@ -1,9 +1,10 @@
 import math
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from app.models import Report, Category
 from app.services.duplicate_service import DuplicateService
+from app.core.config import settings
 from sklearn.cluster import DBSCAN
 import numpy as np
 
@@ -59,12 +60,18 @@ class GeospatialService:
     def detect_hotspots(
         cls,
         db: Session,
-        eps_meters: float = 800.0,  # ~800 meters neighborhood
-        min_samples: int = 3
+        eps_meters: Optional[float] = None,
+        min_samples: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Detect geographic issue hotspots using DBSCAN spatial density clustering on active civic reports.
+        Defaults are empirically derived from k-distance elbow analysis (eps=300m, min_samples=3).
         """
+        if eps_meters is None:
+            eps_meters = settings.DBSCAN_EPS_METERS
+        if min_samples is None:
+            min_samples = settings.DBSCAN_MIN_SAMPLES
+
         # Fetch open issues
         open_reports = db.query(Report).filter(
             Report.status.notin_(["Resolved", "Rejected"])

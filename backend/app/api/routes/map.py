@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models import Report, Category
+from app.core.config import settings
 from app.services.geospatial_service import GeospatialService
 
 router = APIRouter(prefix="/map", tags=["Geospatial & Map"])
@@ -64,12 +65,13 @@ def get_map_reports(
 
 @router.get("/hotspots")
 def get_map_hotspots(
-    eps_meters: float = Query(800.0, ge=100.0, le=5000.0),
-    min_samples: int = Query(3, ge=2, le=20),
+    eps_meters: Optional[float] = Query(None, ge=50.0, le=5000.0),
+    min_samples: Optional[int] = Query(None, ge=2, le=20),
     db: Session = Depends(get_db)
 ):
     """
     Detect geographic issue hotspots across municipal wards using DBSCAN spatial density clustering.
+    Defaults are empirically configured from k-distance elbow analysis (eps=300m, min_samples=3).
     """
     return GeospatialService.detect_hotspots(db=db, eps_meters=eps_meters, min_samples=min_samples)
 
