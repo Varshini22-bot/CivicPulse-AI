@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
+from geoalchemy2 import Geography
 from app.database.connection import Base
 
 def generate_uuid() -> str:
@@ -62,6 +63,8 @@ class Category(Base):
     default_department_id = Column(String(36), ForeignKey("departments.id"), nullable=True)
     icon = Column(String(50), default="alert-circle")
     safety_weight = Column(Float, default=0.5)  # 0.1 to 1.0 inherent safety impact
+    base_severity = Column(Integer, default=5, nullable=False)  # 1 to 10 default severity
+    keywords = Column(JSON, default=list, nullable=False)  # Keywords used for text classification
     
     default_department = relationship("Department", back_populates="categories")
     reports = relationship("Report", back_populates="category", foreign_keys="Report.category_id")
@@ -98,6 +101,13 @@ class Report(Base):
     
     is_duplicate = Column(Boolean, default=False, index=True)
     canonical_report_id = Column(String(36), ForeignKey("reports.id"), nullable=True)
+    
+    is_synthetic = Column(Boolean, default=False, index=True, nullable=False)  # Provenance tracking
+    location = Column(Geography(geometry_type='POINT', srid=4326, spatial_index=False).with_variant(Text, 'sqlite'), nullable=True)  # PostGIS Geography
+
+    __table_args__ = (
+        Index("idx_reports_location_gist", "location", postgresql_using="gist"),
+    )
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
