@@ -411,14 +411,22 @@ All deliverables for Phase 2 have been completed, verified, and committed on git
 | **Frontend UI Overlays** | `frontend/src/pages/IssueDetailsPage.tsx` | Active analyzer badge, pipeline status badge (`OK`, `Low Confidence`, `Needs Review`), policy note banner, and SVG bounding boxes overlaid on inspection photos. |
 | **Automated Tests** | `backend/tests/test_ml_pipeline.py` | 7 automated tests covering interface contracts, honest abstention, selection policy, severity detection integration, persistence, feedback tracking, and eval smoke tests. |
 
-### 10.4 Empirical Benchmark Results Summary
+### 10.4 Empirical Benchmark Results Summary (Verified in Step 0)
 - **Test Suite**: **37 Passed, 1 Skipped (PostGIS)** across 38 tests.
-- **Frontend Build**: **Clean in 1.18s** (zero TypeScript errors, zero lint warnings).
-- **Out-of-Distribution Bengaluru Benchmark ($N=20$)**:
-  - Heuristic Baseline: $100\%$ accuracy (95% CI: $[83.9\%, 100.0\%]$), Macro-F1: $1.000$ (95% CI: $[0.750, 1.000]$), Abstention: $0.0\%$.
-  - Road Defect Detector: Honest abstention $100\%$ (until weights generated via Colab notebook).
-  - Zero-Shot CLIP: Honest abstention on missing image inputs.
-- **Measured CPU Inference Latency**: $0.02\text{ ms}$ (text keyword inference) / $\sim 15\text{ ms}$ (full PIL statistical image analysis) on local Intel CPU.
-- **Expected Calibration Error (ECE)**: $0.545$ across 5 bins.
-- **Model Card**: Fully documented in `MODEL_CARD.md`.
+- **Frontend Build**: **Clean in 1.80s** (zero TypeScript errors).
+- **Out-of-Distribution Fixture Smoke Test ($N=20$, `data/ood_bengaluru/`)**:
+  - *Provenance*: Synthetic fixture dataset and procedural fixture images, labeled: *"Fixture smoke test only, not evidence of performance."*
+  - *Mode 1 (Image-Only, `description=""`, `user_hint=None`)*:
+    - Heuristic Baseline: **0.0%** accuracy (95% CI: [0.0%, 16.1%]), Macro F1: **0.000**, Abstain Rate: **100.0%**.
+    - Road Defect Detector: **0.0%** accuracy, Abstain Rate: **100.0%** (weights not deployed).
+    - Zero-Shot OpenCLIP (ViT-B/32): **10.0%** accuracy (95% CI: [2.8%, 30.1%]), Macro F1: **0.024**, Abstain Rate: **0.0%**.
+  - *Mode 2 (Multimodal Assisted Triage, `description=notes`, `user_hint=None`)*:
+    - Heuristic Baseline: **75.0%** accuracy (95% CI: [53.1%, 88.8%]), Macro F1: **0.753** (95% CI: [0.482, 0.850]), Abstain Rate: **20.0%**.
+- **Measured CPU Inference Latency (Local Intel CPU, 10 warmups, 50 repetitions)**:
+  - HeuristicAnalyzer: p50: **25.85 ms** | p95: **31.08 ms** | p99: **34.28 ms** (includes file read, PIL decode, array conversion, Sobel/HSV processing).
+  - RoadDefectDetector: **0.00 ms** (instant fallback).
+  - ZeroShotAnalyzer (OpenCLIP ViT-B/32): p50: **802.73 ms** | p95: **930.76 ms** | p99: **965.24 ms** (full ViT-B/32 forward pass on CPU).
+- **Expected Calibration Error (ECE)**: Suppressed on small $N=20 < 50$ (statistically uninformative).
+- **Model Card & Reports**: Fully documented in `MODEL_CARD.md` and `PHASE_2_REPORT.md`.
+- **Release**: Merged into `main`, tagged `v0.2.1`.
 

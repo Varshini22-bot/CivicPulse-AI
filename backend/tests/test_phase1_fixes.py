@@ -312,8 +312,8 @@ def test_dynamic_data_driven_category_classification():
 # 8. Data Provenance & is_synthetic Flag Tests
 def test_data_provenance_is_synthetic(client, admin_token):
     """Seeded demo reports must have is_synthetic=True, new citizen reports must have is_synthetic=False."""
-    # Check seeded reports via admin ledger (fetch enough to include seeded batch)
-    res = client.get("/api/admin/reports?limit=50", headers={"Authorization": f"Bearer {admin_token}"})
+    # Check seeded reports via admin ledger (fetch with asc sort to inspect initial seeded batch)
+    res = client.get("/api/admin/reports?limit=100&sort_dir=asc", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
     data = res.json()
     items = data["items"]

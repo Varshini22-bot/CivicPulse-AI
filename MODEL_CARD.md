@@ -65,33 +65,49 @@ To prevent overconfidence across this domain gap, the `CivicVisionPipeline` enfo
 
 ## Empirical Benchmark & Out-of-Distribution Results
 
-Evaluated using `ml/eval/evaluate_ood.py` on the curated out-of-distribution Bengaluru citizen dataset (`data/ood_bengaluru/labels.csv`, $N=20$).
+Evaluated using `ml/eval/evaluate_ood.py` on the curated out-of-distribution Bengaluru fixture dataset (`data/ood_bengaluru/labels.csv`, $N=20$).
 
 > [!NOTE]
-> Single-annotator out-of-distribution benchmark set ($N=20$). Metrics report exact statistical measurements with 95% Wilson Score confidence intervals for accuracy and 1,000-iteration bootstrap confidence intervals for Macro-F1.
+> **Data Provenance & Disclaimer**:
+> The 20 records in `labels.csv` and the images in `data/ood_bengaluru/images/` are synthetic fixture instances created to verify code paths and pipeline behavior. They are **not** real field photographs submitted by end users.
+> **All metrics below represent a fixture smoke test only, not evidence of real-world model performance.** Real citizen photo collection and field evaluation is listed under "Needs user action".
+> Metrics report exact statistical measurements with 95% Wilson Score confidence intervals for accuracy and 1,000-iteration bootstrap confidence intervals for Macro-F1.
 
-| Analyzer | Accuracy | 95% Confidence Interval | Macro F1 | 95% Bootstrap CI | Abstain Rate | Measured CPU Latency (p50) | Status |
+### Mode 1: Image-Only Evaluation (True Visual Classifier Performance)
+Evaluated with `image_path=path`, `description=""`, `user_hint=None` to eliminate label leakage and test pure visual representation:
+
+| Analyzer | Accuracy | 95% Wilson CI | Macro F1 | 95% Bootstrap CI | Abstain Rate | Measured CPU Latency (p50) | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Heuristic Baseline** | 100.0% | [83.9%, 100.0%] | 1.000 | [0.750, 1.000] | 0.0% | 0.02 ms | Deployed (Rule-Based Baseline) |
-| **Road Defect Detector (RDD2022)** | — | — | — | — | 100.0% | — | Abstains honestly (Local weights not loaded) |
-| **Zero-Shot CLIP (ViT-B/32)** | — | — | — | — | 100.0% | — | Abstains honestly (Requires image input) |
+| **Heuristic Baseline** | 0.0% | [0.0%, 16.1%] | 0.000 | [0.000, 0.000] | 100.0% | 25.85 ms | Abstains honestly (Texture heuristics require text or high edge density) |
+| **Road Defect Detector (RDD2022)** | 0.0% | [0.0%, 16.1%] | 0.000 | [0.000, 0.000] | 100.0% | 0.00 ms | Abstains honestly (Weights not placed in `weights/`) |
+| **Zero-Shot CLIP (ViT-B/32)** | 10.0% | [2.8%, 30.1%] | 0.024 | [0.000, 0.052] | 0.0% | 802.73 ms | Active (Zero-shot OpenCLIP vision-language inference on CPU) |
 
-### Confidence Calibration & Latency
+### Mode 2: Multimodal Evaluation (Assisted Triage Pipeline)
+Evaluated with `image_path=path`, `description=citizen_text`, `user_hint=None` to evaluate text-aided triage without leaking ground truth labels:
+
+| Analyzer | Accuracy | 95% Wilson CI | Macro F1 | 95% Bootstrap CI | Abstain Rate | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Heuristic Baseline** | 75.0% | [53.1%, 88.8%] | 0.753 | [0.482, 0.850] | 20.0% | Active (Rule-based keyword extraction + texture verification) |
+| **Road Defect Detector (RDD2022)** | 0.0% | [0.0%, 16.1%] | 0.000 | [0.000, 0.000] | 100.0% | Abstains honestly (Requires trained vision weights) |
+| **Zero-Shot CLIP (ViT-B/32)** | 10.0% | [2.8%, 30.1%] | 0.024 | [0.000, 0.052] | 0.0% | Active (Evaluates image prompts directly) |
+
+### Confidence Calibration & Real CPU Latency
 Evaluated using `ml/eval/abstention_analysis.py`:
-- **Expected Calibration Error (ECE)**: $0.545$ (reflecting underconfidence in heuristic keyword matches relative to 100% discrete bin scores).
-- **Inference Latency (Local Intel CPU)**:
-  - **Median (p50)**: $0.02\text{ ms}$ (text keyword inference) / $\sim 15\text{ ms}$ (full PIL statistical image analysis)
-  - **95th Percentile (p95)**: $0.02\text{ ms}$
-  - **Minimum**: $0.01\text{ ms}$
-  - **Maximum**: $0.18\text{ ms}$
+- **Expected Calibration Error (ECE)**: **Suppressed**. Standard ECE with 10 bins requires at least 50–100 samples per bin for statistically meaningful probability calibration. With $N=20$ total fixture samples, most bins have 0–2 samples, introducing extreme variance. ECE will be reported once a larger dataset ($N \ge 100$) is collected.
+- **Measured End-to-End CPU Latency (Local Intel CPU, 10 warmups, 50 repetitions)**:
+  - **HeuristicAnalyzer (Image-Only)**: p50: **25.85 ms** | p95: **31.08 ms** | p99: **34.28 ms** | mean: $25.46 \pm 3.87\text{ ms}$ (includes disk I/O, PIL decode, array conversion, Sobel/HSV extraction).
+  - **RoadDefectDetector (Fallback)**: **0.00 ms** (instant graceful fallback).
+  - **ZeroShotAnalyzer (OpenCLIP ViT-B/32)**: p50: **802.73 ms** | p95: **930.76 ms** | p99: **965.24 ms** | mean: $812.01 \pm 54.12\text{ ms}$ (full PyTorch ViT-B/32 image encode on CPU).
 
-### Risk-Coverage Trade-Off (Selective Classification)
+### Selective Classification Risk-Coverage Trade-Off (Multimodal Pipeline)
 | Confidence Threshold ($\tau$) | Coverage | Selective Accuracy | Retained Samples | Abstained Samples |
 | :---: | :---: | :---: | :---: | :---: |
-| $\tau \ge 0.00$ | 100.0% | 100.0% | 20 | 0 |
-| $\tau \ge 0.30$ | 100.0% | 100.0% | 20 | 0 |
-| $\tau \ge 0.40$ | 50.0% | 100.0% | 10 | 10 |
-| $\tau \ge 0.60$ | 0.0% | 100.0% | 0 | 20 |
+| $\tau \ge 0.00$ | 100.0% | 45.0% | 20 | 0 |
+| $\tau \ge 0.20$ | 100.0% | 45.0% | 20 | 0 |
+| $\tau \ge 0.40$ | 95.0% | 42.1% | 19 | 1 |
+| $\tau \ge 0.50$ | 70.0% | 21.4% | 14 | 6 |
+| $\tau \ge 0.70$ | 60.0% | 16.7% | 12 | 8 |
+| $\tau \ge 0.80$ | 50.0% | 20.0% | 10 | 10 |
 
 ---
 

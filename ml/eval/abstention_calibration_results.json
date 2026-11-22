@@ -1,99 +1,103 @@
 {
   "benchmark_dataset": "data/ood_bengaluru/labels.csv",
   "sample_count": 20,
-  "expected_calibration_error": {
-    "ece": 0.545,
-    "n_bins": 5,
-    "bins": [
-      {
-        "bin_range": [
-          0.2,
-          0.4
-        ],
-        "count": 10,
-        "accuracy": 1.0,
-        "confidence": 0.366,
-        "calibration_gap": 0.634
-      },
-      {
-        "bin_range": [
-          0.4,
-          0.6
-        ],
-        "count": 10,
-        "accuracy": 1.0,
-        "confidence": 0.544,
-        "calibration_gap": 0.456
-      }
-    ]
-  },
+  "disclaimer": "Smoke test only, not evidence of performance.",
+  "calibration_status": "SUPPRESSED",
+  "calibration_reason": "Headline Expected Calibration Error (ECE) is SUPPRESSED for N=20. Standard ECE with 10 bins requires at least 50-100 samples per bin to yield statistically meaningful probability estimates; with N=20 total samples across 10 bins, most bins have 0-2 samples, resulting in extreme sample variance and uninterpretable ECE values.",
   "risk_coverage_curve": [
     {
       "threshold_tau": 0.0,
       "coverage": 1.0,
-      "selective_accuracy": 1.0,
+      "selective_accuracy": 0.45,
+      "retained_count": 20,
+      "abstained_count": 0
+    },
+    {
+      "threshold_tau": 0.2,
+      "coverage": 1.0,
+      "selective_accuracy": 0.45,
       "retained_count": 20,
       "abstained_count": 0
     },
     {
       "threshold_tau": 0.3,
       "coverage": 1.0,
-      "selective_accuracy": 1.0,
+      "selective_accuracy": 0.45,
       "retained_count": 20,
       "abstained_count": 0
     },
     {
       "threshold_tau": 0.4,
-      "coverage": 0.5,
-      "selective_accuracy": 1.0,
-      "retained_count": 10,
-      "abstained_count": 10
+      "coverage": 0.95,
+      "selective_accuracy": 0.421,
+      "retained_count": 19,
+      "abstained_count": 1
     },
     {
       "threshold_tau": 0.5,
-      "coverage": 0.5,
-      "selective_accuracy": 1.0,
-      "retained_count": 10,
-      "abstained_count": 10
+      "coverage": 0.7,
+      "selective_accuracy": 0.214,
+      "retained_count": 14,
+      "abstained_count": 6
     },
     {
       "threshold_tau": 0.6,
-      "coverage": 0.0,
-      "selective_accuracy": 1.0,
-      "retained_count": 0,
-      "abstained_count": 20
+      "coverage": 0.7,
+      "selective_accuracy": 0.214,
+      "retained_count": 14,
+      "abstained_count": 6
     },
     {
       "threshold_tau": 0.7,
-      "coverage": 0.0,
-      "selective_accuracy": 1.0,
-      "retained_count": 0,
-      "abstained_count": 20
+      "coverage": 0.6,
+      "selective_accuracy": 0.167,
+      "retained_count": 12,
+      "abstained_count": 8
     },
     {
       "threshold_tau": 0.8,
-      "coverage": 0.0,
-      "selective_accuracy": 1.0,
-      "retained_count": 0,
-      "abstained_count": 20
-    },
-    {
-      "threshold_tau": 0.9,
-      "coverage": 0.0,
-      "selective_accuracy": 1.0,
-      "retained_count": 0,
-      "abstained_count": 20
+      "coverage": 0.5,
+      "selective_accuracy": 0.2,
+      "retained_count": 10,
+      "abstained_count": 10
     }
   ],
-  "measured_cpu_latency": {
-    "iterations": 50,
-    "unit": "milliseconds",
-    "mean_ms": 0.02,
-    "std_ms": 0.0,
-    "p50_median_ms": 0.02,
-    "p95_ms": 0.02,
-    "p99_ms": 0.02,
-    "min_ms": 0.02,
-    "max_ms": 0.02
+  "measured_end_to_end_cpu_latencies": {
+    "HeuristicAnalyzer (Image-Only)": {
+      "iterations": 50,
+      "warmups": 10,
+      "unit": "milliseconds",
+      "mean_ms": 25.46,
+      "std_ms": 3.87,
+      "p50_median_ms": 25.85,
+      "p95_ms": 31.08,
+      "p99_ms": 34.28,
+      "min_ms": 18.97,
+      "max_ms": 35.14
+    },
+    "RoadDefectDetector (Fallback)": {
+      "iterations": 50,
+      "warmups": 10,
+      "unit": "milliseconds",
+      "mean_ms": 0.0,
+      "std_ms": 0.0,
+      "p50_median_ms": 0.0,
+      "p95_ms": 0.0,
+      "p99_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "ZeroShotAnalyzer (OpenCLIP ViT-B/32)": {
+      "iterations": 50,
+      "warmups": 10,
+      "unit": "milliseconds",
+      "mean_ms": 812.01,
+      "std_ms": 54.12,
+      "p50_median_ms": 802.73,
+      "p95_ms": 930.76,
+      "p99_ms": 965.24,
+      "min_ms": 734.94,
+      "max_ms": 968.4
+    }
   }
 }

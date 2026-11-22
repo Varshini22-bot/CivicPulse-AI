@@ -127,8 +127,8 @@ Because standard development environments lack dedicated CUDA GPUs, a turnkey Go
 
 ### Evaluation Suite
 - **Detector Evaluation**: `python ml/eval/evaluate_detector.py` computes precision, recall, mAP@0.5, and mAP@0.5:0.95.
-- **Out-of-Distribution Bengaluru Benchmark**: `python ml/eval/evaluate_ood.py` benchmarks models against real citizen photos (`data/ood_bengaluru/labels.csv`) with 95% Wilson Score intervals and 1,000-sample bootstrap Macro-F1.
-- **Confidence Calibration & Latency**: `python ml/eval/abstention_analysis.py` measures Expected Calibration Error (ECE), risk-coverage curves, and actual local CPU inference latency.
+- **Out-of-Distribution Bengaluru Benchmark**: `python ml/eval/evaluate_ood.py` benchmarks models against the Bengaluru fixture smoke test dataset (`data/ood_bengaluru/`) across Image-Only and Multimodal modes with 95% Wilson Score intervals and 1,000-sample bootstrap Macro-F1. Real citizen photo collection is listed under "Needs user action".
+- **Confidence Calibration & Latency**: `python ml/eval/abstention_analysis.py` measures real end-to-end CPU latencies (p50/p95/p99) per image across all analyzers, documents why ECE is suppressed on small $N$, and computes risk-coverage curves for selective classification.
 - Detailed metrics and license details are documented in [MODEL_CARD.md](MODEL_CARD.md).
 
 ---

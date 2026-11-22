@@ -190,9 +190,11 @@ def test_ml_evaluation_scripts_execute_cleanly():
 
     # 2. OOD benchmark execution
     ood_res = run_ood_evaluation(labels_csv_path="data/ood_bengaluru/labels.csv")
-    assert "Heuristic Baseline" in ood_res
-    assert "Road Defect Detector (RDD2022)" in ood_res
-    assert ood_res["Road Defect Detector (RDD2022)"]["abstain_rate"] == 1.0
+    assert "image_only_evaluation" in ood_res
+    assert "multimodal_evaluation" in ood_res
+    assert "Heuristic Baseline" in ood_res["image_only_evaluation"]
+    assert "Road Defect Detector (RDD2022)" in ood_res["image_only_evaluation"]
+    assert ood_res["image_only_evaluation"]["Road Defect Detector (RDD2022)"]["abstain_rate"] == 1.0
 
     # 3. Calibration ECE & risk coverage math verification
     confidences = [0.9, 0.8, 0.4, 0.35, 0.2]

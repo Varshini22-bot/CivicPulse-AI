@@ -1,16 +1,25 @@
 """
-Out-of-Distribution (OOD) Benchmark Evaluation
-==============================================
-Evaluates the CivicPulse AI Computer Vision analyzers against out-of-distribution,
-real-world Bengaluru citizen mobile phone photographs (data/ood_bengaluru/labels.csv).
+Fixture Smoke Test & Out-of-Distribution Evaluation
+===================================================
+Evaluates the CivicPulse AI Computer Vision analyzers against the 20-sample
+Bengaluru fixture smoke test set (data/ood_bengaluru/labels.csv and images).
 
-Statistical Integrity & Honest Reporting:
------------------------------------------
-- Calculates Top-1 Accuracy with 95% Wilson Score Confidence Intervals.
-- Calculates Macro-F1 with 95% Bootstrap Resampling (1,000 iterations).
-- Reports Abstention Rate directly (how often models abstain rather than guess).
-- Explicitly labels data as a small, single-annotator benchmark set.
-- Side-by-side comparison of Heuristic Baseline, Road Defect Detector, and ZeroShot CLIP.
+Data Provenance Disclosure:
+---------------------------
+- The 20 records in labels.csv and the images in data/ood_bengaluru/images/ are
+  reproducible fixture smoke test instances created to verify code paths.
+- They are NOT real field photographs submitted by end users.
+- Results are reported strictly as "fixture smoke test only, not evidence of performance".
+
+Evaluation Methodology:
+-----------------------
+- Mode 1: Image-Only (True Classifier Performance).
+  Evaluates vision feature extraction and classification without text or hints:
+  (image_path=img_path, description="", user_hint=None).
+- Mode 2: Multimodal (Assisted Triage Pipeline).
+  Evaluates combined image features and citizen description text without label leakage:
+  (image_path=img_path, description=desc, user_hint=None).
+- Metrics: Top-1 Accuracy with 95% Wilson Score Interval; Macro-F1 with 1,000-sample Bootstrap CI.
 """
 
 import os
@@ -23,7 +32,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import numpy as np
 
-# Add backend to path to import analyzers
+# Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 
 from app.ml.heuristic_analyzer import HeuristicAnalyzer
@@ -32,13 +41,10 @@ from app.ml.zeroshot_analyzer import ZeroShotAnalyzer
 
 
 def wilson_score_interval(successes: int, total: int, confidence: float = 0.95) -> Tuple[float, float]:
-    """
-    Computes Wilson score interval for binomial proportions.
-    Ideal for small sample sizes (N < 100) where normal approximation fails.
-    """
+    """Computes Wilson score interval for binomial proportions."""
     if total == 0:
         return 0.0, 0.0
-    z = 1.95996  # 95% confidence z-score
+    z = 1.95996
     p_hat = successes / total
     denom = 1.0 + (z**2) / total
     center = (p_hat + (z**2) / (2 * total)) / denom
@@ -52,13 +58,10 @@ def bootstrap_macro_f1(
     n_iterations: int = 1000,
     seed: int = 42
 ) -> Tuple[float, Tuple[float, float]]:
-    """
-    Computes Macro F1 with 95% confidence intervals using non-parametric bootstrap resampling.
-    """
+    """Computes Macro F1 with 95% bootstrap confidence intervals."""
     from sklearn.metrics import f1_score
 
     classes = sorted(list(set(y_true + y_pred)))
-    # Exclude abstain from regular classes for f1
     eval_classes = [c for c in classes if c != "abstain"]
 
     if not eval_classes:
@@ -83,9 +86,12 @@ def bootstrap_macro_f1(
     return float(base_f1), (ci_lower, ci_upper)
 
 
-def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -> Dict[str, Any]:
+def run_ood_evaluation(
+    labels_csv_path: str = "data/ood_bengaluru/labels.csv",
+    images_dir: str = "data/ood_bengaluru/images"
+) -> Dict[str, Any]:
     """
-    Evaluates all available analyzers on the out-of-distribution Bengaluru test set.
+    Evaluates analyzers under both Image-Only and Multimodal modes.
     """
     if not os.path.exists(labels_csv_path):
         raise FileNotFoundError(f"OOD labels file not found at: {labels_csv_path}")
@@ -97,11 +103,12 @@ def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -
             records.append(row)
 
     n_samples = len(records)
-    print(f"\n================================================================================")
-    print(f"      CIVICPULSE AI — OUT-OF-DISTRIBUTION (OOD) BENGALURU BENCHMARK")
-    print(f"================================================================================")
-    print(f"Sample Count: N = {n_samples} citizen reports (Single-annotator benchmark set)")
-    print(f"Environment: Real Bengaluru street conditions (dashcam-to-mobile domain gap)")
+    print("\n" + "=" * 80)
+    print("      CIVICPULSE AI — FIXTURE SMOKE TEST EVALUATION")
+    print("      (Synthetic metadata & fixture images — smoke test only, not evidence of performance)")
+    print("=" * 80)
+    print(f"Sample Count: N = {n_samples} fixture records")
+    print(f"Images Path:  {images_dir}")
     print(f"Confidence Level: 95% Wilson Score Interval (Acc) & 1,000-sample Bootstrap (F1)\n")
 
     heuristic = HeuristicAnalyzer()
@@ -114,7 +121,19 @@ def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -
         ("Zero-Shot CLIP (ViT-B/32)", zeroshot)
     ]
 
-    results_table = {}
+    results_table = {
+        "evaluation_disclaimer": "Smoke test only, not evidence of performance. Evaluated on synthetic fixture dataset (N=20).",
+        "image_only_evaluation": {},
+        "multimodal_evaluation": {}
+    }
+
+    # =========================================================================
+    # MODE 1: IMAGE-ONLY (True Classifier Performance)
+    # =========================================================================
+    print("--------------------------------------------------------------------------------")
+    print(" MODE 1: IMAGE-ONLY EVALUATION (True Visual Classifier Performance)")
+    print(" (description='', user_hint=None; no text shortcuts, no label leakage)")
+    print("--------------------------------------------------------------------------------")
 
     for name, analyzer in analyzers:
         y_true = []
@@ -124,10 +143,11 @@ def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -
 
         for r in records:
             gt_cat = r["ground_truth_category"]
-            desc = r.get("notes", "")
+            img_id = r["image_id"]
+            img_path = os.path.join(images_dir, f"{img_id}.jpg") if os.path.exists(os.path.join(images_dir, f"{img_id}.jpg")) else None
 
-            # Execute analyzer
-            res = analyzer.analyze(image_path=None, description=desc, user_hint=gt_cat)
+            # Execute Image-Only inference (description="", user_hint=None)
+            res = analyzer.analyze(image_path=img_path, description="", user_hint=None)
 
             pred_cat = res.category_suggestion
             if res.status == "abstain":
@@ -145,7 +165,7 @@ def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -
         f1, f1_ci = bootstrap_macro_f1(y_true, y_pred)
         abstain_rate = abstain_count / n_samples if n_samples > 0 else 0.0
 
-        results_table[name] = {
+        results_table["image_only_evaluation"][name] = {
             "samples": n_samples,
             "correct": correct_count,
             "accuracy": round(acc, 3),
@@ -161,18 +181,74 @@ def run_ood_evaluation(labels_csv_path: str = "data/ood_bengaluru/labels.csv") -
         print(f"  - Macro F1:     {f1:.3f} (95% CI: [{f1_ci[0]:.3f}, {f1_ci[1]:.3f}])")
         print(f"  - Abstain Rate: {abstain_rate:.1%} ({abstain_count}/{n_samples} reports)\n")
 
-    output_path = Path("ml/eval/ood_benchmark_results.json")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
+    # =========================================================================
+    # MODE 2: MULTIMODAL (Assisted Triage Pipeline: Image + Description Text)
+    # =========================================================================
+    print("--------------------------------------------------------------------------------")
+    print(" MODE 2: MULTIMODAL EVALUATION (Image + Citizen Description Text)")
+    print(" (description=citizen_text, user_hint=None; no ground truth hint)")
+    print("--------------------------------------------------------------------------------")
+
+    for name, analyzer in analyzers:
+        y_true = []
+        y_pred = []
+        abstain_count = 0
+        correct_count = 0
+
+        for r in records:
+            gt_cat = r["ground_truth_category"]
+            desc = r.get("notes", "")
+            img_id = r["image_id"]
+            img_path = os.path.join(images_dir, f"{img_id}.jpg") if os.path.exists(os.path.join(images_dir, f"{img_id}.jpg")) else None
+
+            # Execute Multimodal inference with citizen description text, but user_hint=None
+            res = analyzer.analyze(image_path=img_path, description=desc, user_hint=None)
+
+            pred_cat = res.category_suggestion
+            if res.status == "abstain":
+                abstain_count += 1
+                pred_cat = "abstain"
+
+            y_true.append(gt_cat)
+            y_pred.append(pred_cat)
+
+            if pred_cat == gt_cat:
+                correct_count += 1
+
+        acc = correct_count / n_samples if n_samples > 0 else 0.0
+        acc_ci = wilson_score_interval(correct_count, n_samples)
+        f1, f1_ci = bootstrap_macro_f1(y_true, y_pred)
+        abstain_rate = abstain_count / n_samples if n_samples > 0 else 0.0
+
+        results_table["multimodal_evaluation"][name] = {
+            "samples": n_samples,
+            "correct": correct_count,
+            "accuracy": round(acc, 3),
+            "accuracy_95ci": [round(acc_ci[0], 3), round(acc_ci[1], 3)],
+            "macro_f1": round(f1, 3),
+            "macro_f1_95ci": [round(f1_ci[0], 3), round(f1_ci[1], 3)],
+            "abstain_count": abstain_count,
+            "abstain_rate": round(abstain_rate, 3)
+        }
+
+        print(f"[{name}]")
+        print(f"  - Accuracy:     {acc:.1%} (95% CI: [{acc_ci[0]:.1%}, {acc_ci[1]:.1%}])")
+        print(f"  - Macro F1:     {f1:.3f} (95% CI: [{f1_ci[0]:.3f}, {f1_ci[1]:.3f}])")
+        print(f"  - Abstain Rate: {abstain_rate:.1%} ({abstain_count}/{n_samples} reports)\n")
+
+    out_path = Path("ml/eval/ood_benchmark_results.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results_table, f, indent=2)
 
-    print(f"Results saved to {output_path}")
+    print(f"Detailed smoke test results saved to: {out_path}\n")
     return results_table
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run OOD Bengaluru Benchmark")
+    parser = argparse.ArgumentParser(description="Run Fixture Smoke Test Evaluation")
     parser.add_argument("--labels", type=str, default="data/ood_bengaluru/labels.csv")
+    parser.add_argument("--images", type=str, default="data/ood_bengaluru/images")
     args = parser.parse_args()
 
-    run_ood_evaluation(args.labels)
+    run_ood_evaluation(args.labels, args.images)
