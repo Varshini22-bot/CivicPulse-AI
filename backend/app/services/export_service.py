@@ -50,12 +50,16 @@ class ExportService:
             "Address",
             "Area",
             "Is Duplicate",
+            "Is Synthetic",
+            "Data Provenance",
             "Created Date",
             "Resolved Date",
             "Resolution Notes"
         ])
 
         for r in reports:
+            is_synth = getattr(r, "is_synthetic", False) or (r.title and "[DEMO DATA]" in r.title)
+            provenance = "Synthetic (Simulated Portfolio Dataset)" if is_synth else "Real Citizen Submission"
             writer.writerow([
                 r.tracking_number,
                 r.title,
@@ -71,6 +75,8 @@ class ExportService:
                 r.address or "",
                 r.area or "",
                 "Yes" if r.is_duplicate else "No",
+                "True" if is_synth else "False",
+                provenance,
                 r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "",
                 r.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if r.resolved_at else "",
                 r.resolution_notes or ""

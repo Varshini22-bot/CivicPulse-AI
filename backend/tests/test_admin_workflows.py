@@ -68,7 +68,7 @@ def test_geospatial_hotspots_and_markers(client):
     assert "center_latitude" in hotspots[0]
     assert "total_reports" in hotspots[0]
 
-def test_analytics_and_export(client):
+def test_analytics_and_export(client, admin_token):
     # Overview KPIs
     kpi_res = client.get("/api/analytics/kpis")
     assert kpi_res.status_code == 200
@@ -85,8 +85,14 @@ def test_analytics_and_export(client):
     assert len(charts["issues_by_priority"]) == 4
     assert len(charts["timeline_trend"]) == 14
 
-    # CSV Export
-    csv_res = client.get("/api/analytics/export")
+    # CSV Export - Unauthenticated must be rejected with 401
+    unauth_csv = client.get("/api/analytics/export")
+    assert unauth_csv.status_code == 401
+
+    # CSV Export - Admin succeeds and includes synthetic provenance column
+    csv_res = client.get("/api/analytics/export", headers={"Authorization": f"Bearer {admin_token}"})
     assert csv_res.status_code == 200
     assert "text/csv" in csv_res.headers["content-type"]
     assert "Tracking Number,Title,Category" in csv_res.text
+    assert "Is Synthetic" in csv_res.text
+    assert "Data Provenance" in csv_res.text

@@ -2,6 +2,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
+from app.models import User
+from app.api.deps import get_current_active_admin
 from app.services.analytics_service import AnalyticsService
 from app.services.export_service import ExportService
 from app.ml.evaluation import ModelEvaluator
@@ -56,9 +58,13 @@ def export_reports_csv(
     priority: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     area: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_active_admin)
 ):
-    """Download filtered civic reports dataset as CSV."""
+    """
+    Download filtered civic reports dataset as CSV.
+    Strictly restricted to authenticated municipal administrators.
+    """
     csv_data = ExportService.generate_csv(
         db=db,
         category_id=category_id,

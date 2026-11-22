@@ -3,7 +3,7 @@ import io
 import shutil
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
 from PIL import Image
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
@@ -12,6 +12,7 @@ from app.schemas import CategoryOut, ReportListItemOut, ReportDetailOut
 from app.services.report_service import ReportService
 from app.api.deps import get_current_user, get_optional_current_user
 from app.core.config import settings
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/reports", tags=["Citizen Reports"])
 
@@ -142,7 +143,9 @@ def get_categories(db: Session = Depends(get_db)):
     return db.query(Category).order_by(Category.name.asc()).all()
 
 @router.post("", response_model=ReportDetailOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def submit_report(
+    request: Request,
     title: str = Form(..., min_length=5, max_length=255),
     description: str = Form(..., min_length=10),
     category_code: str = Form(...),
@@ -157,6 +160,7 @@ async def submit_report(
     """
     Submit a citizen civic report. Accepts photographic evidence, coordinates,
     and runs the full AI inference pipeline (classification, severity, priority, duplicates).
+    Enforces 10MB limit, magic-byte validation, and strips all privacy-sensitive EXIF metadata.
     """
     image_path = None
     if image:
@@ -195,13 +199,18 @@ async def submit_report(
                 detail="Uploaded file failed image integrity validation (corrupted or polyglot payload)."
             )
 
-        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-        unique_filename = f"{uuid.uuid4()}{ext}"
-        target_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
-        
-        with open(target_path, "wb") as buffer:
-            buffer.write(file_bytes)
-            
+        # Re-open verified image to strip EXIF/GPS metadata and save pure pixel raster
+        with Image.open(io.BytesIO(file_bytes)) as source_img:
+            mode = "RGBA" if source_img.mode in ("RGBA", "LA", "P") and ext in (".png", ".webp") else "RGB"
+            clean_img = source_img.convert(mode)
+
+            os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+            unique_filename = f"{uuid.uuid4()}{ext}"
+            target_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
+
+            save_format = "JPEG" if ext in [".jpg", ".jpeg"] else ("PNG" if ext == ".png" else "WEBP")
+            clean_img.save(target_path, format=save_format)
+
         image_path = target_path
 
     # Delegate to ReportService

@@ -1,16 +1,18 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models import User
 from app.schemas import UserCreate, UserLogin, UserOut, Token
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.api.deps import get_current_user
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("15/minute")
+def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db)):
     """Register a new citizen account."""
     existing = db.query(User).filter(User.email == user_in.email.lower().strip()).first()
     if existing:
@@ -39,7 +41,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 @router.post("/login", response_model=Token)
-def login(login_data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def login(request: Request, login_data: UserLogin, db: Session = Depends(get_db)):
     """Login with email and password to receive JWT session token."""
     user = db.query(User).filter(User.email == login_data.email.lower().strip()).first()
     if not user or not verify_password(login_data.password, user.password_hash):
