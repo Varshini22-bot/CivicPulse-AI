@@ -70,16 +70,29 @@ export interface ReportItem {
   assigned_staff?: string;
 }
 
+export interface DetectionBox {
+  class_name: string;
+  bbox: [number, number, number, number]; // [ymin, xmin, ymax, xmax] normalized [0, 1]
+  score: number;
+  area?: number;
+}
+
 export interface AIPrediction {
   predicted_category_code: string;
   predicted_category_name: string;
+  suggested_category_code?: string;
+  suggested_category_name?: string;
   confidence: number;
+  detections?: DetectionBox[];
   raw_predictions?: Record<string, number>;
   detected_features?: Record<string, any>;
   model_name: string;
   model_version: string;
   inference_time_ms: number;
   processing_status: string;
+  policy_note?: string;
+  is_overridden?: boolean;
+  override_category_code?: string;
 }
 
 export interface PriorityBreakdown {

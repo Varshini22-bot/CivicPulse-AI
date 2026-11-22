@@ -206,16 +206,39 @@ export const IssueDetailsPage: React.FC<IssueDetailsPageProps> = ({ reportId, on
               {/* Image Preview */}
               <div className="relative rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 group">
                 {report.image_url ? (
-                  <div className="relative">
+                  <div className="relative inline-block w-full">
                     <img
                       src={report.image_url.startsWith('http') ? report.image_url : `http://127.0.0.1:8000/${report.image_url}`}
                       alt="Citizen submitted defect"
                       className="w-full max-h-80 object-cover cursor-pointer transition-transform duration-300 group-hover:scale-[1.01]"
                       onClick={() => setLightboxImage(report.image_url?.startsWith('http') ? report.image_url : `http://127.0.0.1:8000/${report.image_url}`)}
                     />
+                    {/* SVG/CSS Detection Box Overlay */}
+                    {report.ai_prediction?.detections && report.ai_prediction.detections.length > 0 && (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {report.ai_prediction.detections.map((det, idx) => {
+                          const [ymin, xmin, ymax, xmax] = det.bbox;
+                          const top = `${ymin * 100}%`;
+                          const left = `${xmin * 100}%`;
+                          const width = `${(xmax - xmin) * 100}%`;
+                          const height = `${(ymax - ymin) * 100}%`;
+                          return (
+                            <div
+                              key={idx}
+                              className="absolute border-2 border-amber-400 bg-amber-400/20 rounded-sm"
+                              style={{ top, left, width, height }}
+                            >
+                              <span className="absolute -top-5 left-0 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-slate-950 rounded shadow-sm whitespace-nowrap">
+                                {det.class_name} ({Math.round(det.score * 100)}%)
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <button
                       onClick={() => setLightboxImage(report.image_url?.startsWith('http') ? report.image_url : `http://127.0.0.1:8000/${report.image_url}`)}
-                      className="absolute bottom-3 right-3 p-2 bg-slate-900/80 text-white rounded-lg backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-xs"
+                      className="absolute bottom-3 right-3 p-2 bg-slate-900/80 text-white rounded-lg backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-xs z-10"
                       title="Enlarge inspection photo"
                     >
                       <Maximize2 className="w-3.5 h-3.5" />
@@ -270,15 +293,67 @@ export const IssueDetailsPage: React.FC<IssueDetailsPageProps> = ({ reportId, on
           <Card>
             <CardHeader
               title="Explainable Computer Vision Diagnostics"
-              subtitle="Trained feature signatures, classification probabilities, and inference latency"
+              subtitle={`Analysis performed by ${report.ai_prediction?.model_name || 'Heuristic Baseline'}`}
               icon={<Cpu className="w-5 h-5 text-teal-600" />}
             />
             <CardContent className="space-y-4">
               
+              {/* Analyzer Name, Status & Confidence Badges */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Active Analyzer:</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 font-mono">
+                    {report.ai_prediction?.model_name || 'Heuristic Baseline'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Pipeline Status:</span>
+                  {report.ai_prediction?.processing_status === 'completed' ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                      <CheckCircle2 className="w-3 h-3" /> OK
+                    </span>
+                  ) : report.ai_prediction?.confidence && report.ai_prediction.confidence < 0.40 ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      <AlertTriangle className="w-3 h-3" /> Low Confidence
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400">
+                      <ShieldAlert className="w-3 h-3" /> Needs Human Review
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Policy / Suggestion Note */}
+              {report.ai_prediction?.policy_note && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200 text-amber-900 rounded-lg text-xs leading-relaxed flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Authoritative Citizen Selection Policy: </span>
+                    <span>{report.ai_prediction.policy_note}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Detection Box Count if any */}
+              {report.ai_prediction?.detections && report.ai_prediction.detections.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-xs font-semibold text-slate-700">Localized Structural Detections ({report.ai_prediction.detections.length}):</span>
+                  <div className="flex flex-wrap gap-2">
+                    {report.ai_prediction.detections.map((det, idx) => (
+                      <div key={idx} className="text-[11px] font-medium px-2 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded">
+                        {det.class_name}: {Math.round(det.score * 100)}% conf
+                        {det.area && <span className="text-amber-700 font-mono ml-1">({Math.round(det.area * 100)}% area)</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3 bg-teal-50/60 rounded-lg border border-teal-200 text-teal-900">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-teal-700">Model Name</div>
-                  <div className="text-xs font-bold mt-0.5 truncate">{report.ai_prediction?.model_name || 'Ensemble-v1.2'}</div>
+                  <div className="text-xs font-bold mt-0.5 truncate">{report.ai_prediction?.model_name || 'Heuristic Baseline'}</div>
                 </div>
                 <div className="p-3 bg-teal-50/60 rounded-lg border border-teal-200 text-teal-900">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-teal-700">Confidence</div>
