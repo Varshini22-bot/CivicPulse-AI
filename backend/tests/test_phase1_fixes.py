@@ -121,6 +121,43 @@ def test_exif_gps_stripping_on_upload(client):
         assert len(saved_exif) == 0, f"Expected 0 EXIF tags, found: {dict(saved_exif)}"
 
 
+def test_exif_orientation_preserved_and_phash_aligned(client):
+    """
+    EXIF orientation tag must be physically applied to the pixel raster via ImageOps.exif_transpose
+    BEFORE stripping metadata, ensuring pHash and stored pixels represent true visual orientation.
+    """
+    # Create asymmetric image: width 200, height 100
+    img = Image.new("RGB", (200, 100), color=(100, 150, 200))
+    exif_data = img.getexif()
+    # Tag 0x0112 is Orientation. Orientation 6 indicates 90-degree CW rotation (swapping dimensions to 100x200)
+    exif_data[0x0112] = 6
+
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format="JPEG", exif=exif_data)
+    img_bytes.seek(0)
+
+    res = client.post(
+        "/api/reports",
+        data={
+            "title": "Orientation Transpose Test",
+            "description": "Verifying that EXIF orientation transpose physically rotates the pixel matrix.",
+            "category_code": "pothole",
+            "latitude": 12.9352,
+            "longitude": 77.6245
+        },
+        files={"image": ("test_oriented.jpg", img_bytes, "image/jpeg")}
+    )
+    assert res.status_code == 201
+    saved_url = res.json().get("image_url")
+    assert saved_url and os.path.exists(saved_url)
+
+    with Image.open(saved_url) as saved_img:
+        # After transpose of 200x100 with orientation 6, the resulting raster dimensions must be 100x200
+        assert saved_img.size == (100, 200), f"Expected transposed dimensions (100, 200), got {saved_img.size}"
+        # All EXIF should be stripped
+        assert len(saved_img.getexif()) == 0
+
+
 # 4. Bitwise Hamming Distance & Weight Renormalization Tests
 def test_bitwise_hamming_distance_exact():
     """Verify bitwise Hamming distance across 64-bit hexadecimal hashes."""

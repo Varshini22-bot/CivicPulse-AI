@@ -231,14 +231,21 @@ Output:
 
 ### Geospatial & Hotspots
 - `GET /api/map/reports` — Geo-coordinates with color-coded priority pins
-- `GET /api/map/hotspots` — DBSCAN density clusters ($\epsilon=800m$, Min=3)
+- `GET /api/map/hotspots` — DBSCAN density clusters ($\epsilon=300m$, Min=3; provisional default tuned on synthetic data, no real-world cluster quality claimed)
 - `GET /api/map/nearby` — Radius-based nearby report discovery
 
 ### Analytics & BI
 - `GET /api/analytics/kpis` — 8 primary operational metrics
 - `GET /api/analytics/charts` — Trend, category, priority, and area distributions
-- `GET /api/analytics/ai-metrics` — Precision, recall, F1-scores, and confusion matrix
-- `GET /api/analytics/export` — Download filtered records in CSV format
+- `GET /api/analytics/ai-metrics` — Model evaluation status and confusion matrix
+- `GET /api/analytics/export` — Download filtered records in CSV format (requires admin authorization)
+
+---
+
+## 🔒 Security & Production Operational Notes
+- **Rate Limiting**: Throttling on `/api/auth/register` (15/min), `/api/auth/login` (20/min), and `/api/reports` (30/min) is enforced via SlowAPI using an in-memory storage strategy. For distributed, multi-worker production deployments (e.g. multi-process Uvicorn / Gunicorn behind Nginx), a Redis-backed storage engine (`limits.storage.RedisStorage`) is required.
+- **Privacy & Metadata**: All image uploads have EXIF and GPS tags stripped after orientation normalization (`ImageOps.exif_transpose`) before persisting to disk.
+- **Data Provenance**: Seeded demo records are tagged with `is_synthetic = True` across the database and exported files. Genuine citizen submissions default to `is_synthetic = False`.
 
 ---
 

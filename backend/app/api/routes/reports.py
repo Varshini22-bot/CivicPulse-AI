@@ -4,7 +4,7 @@ import shutil
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
-from PIL import Image
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models import Report, Category, User, Notification
@@ -200,10 +200,15 @@ async def submit_report(
                 detail="Uploaded file failed image integrity validation (corrupted or polyglot payload)."
             )
 
-        # Re-open verified image to strip EXIF/GPS metadata and save pure pixel raster
+        # Re-open verified image, apply EXIF transpose so physical orientation is preserved,
+        # strip EXIF/GPS metadata, and save pure pixel raster
         with Image.open(io.BytesIO(file_bytes)) as source_img:
-            mode = "RGBA" if source_img.mode in ("RGBA", "LA", "P") and ext in (".png", ".webp") else "RGB"
-            clean_img = source_img.convert(mode)
+            transposed_img = ImageOps.exif_transpose(source_img)
+            if transposed_img is None:
+                transposed_img = source_img
+
+            mode = "RGBA" if transposed_img.mode in ("RGBA", "LA", "P") and ext in (".png", ".webp") else "RGB"
+            clean_img = transposed_img.convert(mode)
 
             os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
             unique_filename = f"{uuid.uuid4()}{ext}"

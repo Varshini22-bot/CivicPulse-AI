@@ -30,3 +30,6 @@
 ## Empirical Conclusion
 At `eps = 800m`, DBSCAN creates large multi-kilometer aggregates that span across multiple wards with artificial cluster linkage.
 At `eps = 300m` and `min_samples = 3`, clusters maintain strict neighborhood boundary coherence (0 cross-ward leakages) while capturing realistic infrastructure hotspots.
+
+> [!IMPORTANT]
+> **Provisional Default Notice**: The parameter selection of $\text{eps} = 300\text{m}$ and $\text{min\_samples} = 3$ is an empirical provisional default tuned strictly on the current synthetic Bengaluru demo dataset. No claim is made regarding real-world cluster quality without field validation against real-world municipal inspection GPS logs. Real-world urban density, road layouts, and report frequencies vary widely and require ongoing parameter calibration.
