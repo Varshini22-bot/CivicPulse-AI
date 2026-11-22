@@ -129,17 +129,29 @@ class AIPrediction(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     report_id = Column(String(36), ForeignKey("reports.id"), nullable=False, unique=True)
     predicted_category_id = Column(String(36), ForeignKey("categories.id"), nullable=False)
+    suggested_category_id = Column(String(36), ForeignKey("categories.id"), nullable=True)
     confidence = Column(Float, nullable=False)  # 0.0 to 1.0
     detected_features = Column(JSON, nullable=True)
     raw_predictions = Column(JSON, nullable=True)  # All category probabilities
-    model_name = Column(String(100), default="CivicPulse-Vision-Ensemble-v1")
-    model_version = Column(String(50), default="1.2.0")
-    inference_time_ms = Column(Float, default=45.0)
+    detections = Column(JSON, default=list, nullable=True)  # Localized bounding boxes
+    model_name = Column(String(100), default="rule_based_heuristic")
+    model_version = Column(String(50), default="1.0.0")
+    inference_time_ms = Column(Float, default=10.0)
     processing_status = Column(String(50), default="completed")
+    policy_note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
+    # Human-in-the-loop feedback labels for retraining export
+    is_overridden = Column(Boolean, default=False)
+    override_category_id = Column(String(36), ForeignKey("categories.id"), nullable=True)
+    override_user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    override_notes = Column(Text, nullable=True)
+    override_at = Column(DateTime, nullable=True)
+
     report = relationship("Report", back_populates="ai_prediction")
-    predicted_category = relationship("Category")
+    predicted_category = relationship("Category", foreign_keys=[predicted_category_id])
+    suggested_category = relationship("Category", foreign_keys=[suggested_category_id])
+    override_category = relationship("Category", foreign_keys=[override_category_id])
 
 class PriorityScore(Base):
     __tablename__ = "priority_scores"

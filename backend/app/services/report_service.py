@@ -9,6 +9,7 @@ from app.models import (
     DuplicateCandidate, Assignment, AuditLog, Notification, User
 )
 from app.ml.vision_classifier import classifier
+from app.ml.pipeline import pipeline
 from app.services.severity_service import SeverityService
 from app.services.priority_service import PriorityService
 from app.services.duplicate_service import DuplicateService
@@ -64,29 +65,32 @@ class ReportService:
 
         tracking_num = cls.generate_tracking_number(db)
         
-        # 2. Run Computer Vision inference
-        vision_result = classifier.predict(
+        # 2. Run Computer Vision inference through multi-model CivicVisionPipeline
+        vision_result = pipeline.process_report(
             image_path=image_path,
-            user_category_hint=category_code,
             description=description,
+            citizen_category_code=category.code if category else "other",
             db=db
         )
 
-        pred_cat_code = vision_result["predicted_category"]
-        pred_category = db.query(Category).filter(Category.code == pred_cat_code).first()
-        if not pred_category:
-            pred_category = category
+        pred_cat_code = category.code if category else "other"
+        sugg_cat_code = vision_result.get("ai_suggested_category", pred_cat_code)
+        suggested_category = db.query(Category).filter(Category.code == sugg_cat_code).first()
+        if not suggested_category:
+            suggested_category = category
 
         confidence = vision_result["confidence"]
         visual_features = vision_result.get("detected_features", {})
 
-        # 3. Estimate Severity (1-10)
+        # 3. Estimate Severity (1-10) with optional localized defect metrics
         sev_result = SeverityService.estimate_severity(
             category_code=pred_cat_code,
             confidence=confidence,
             visual_features=visual_features,
             description=description,
-            db=db
+            db=db,
+            detection_count=vision_result.get("detection_count"),
+            relative_box_area=vision_result.get("relative_box_area")
         )
         ai_severity = sev_result["severity_score"]
 
@@ -125,17 +129,21 @@ class ReportService:
         db.add(report)
         db.flush()
 
-        # 6. Save AI Prediction
+        # 6. Save AI Prediction with model attribution and detection boxes
         prediction_record = AIPrediction(
             report_id=report.id,
-            predicted_category_id=pred_category.id,
+            predicted_category_id=category.id,
+            suggested_category_id=suggested_category.id if suggested_category else None,
             confidence=confidence,
             detected_features=visual_features,
             raw_predictions=vision_result.get("raw_predictions", {}),
-            model_name=vision_result.get("model_name"),
-            model_version=vision_result.get("model_version"),
-            inference_time_ms=vision_result.get("inference_time_ms", 45.0),
-            processing_status=vision_result.get("processing_status", "completed")
+            detections=vision_result.get("detections", []),
+            model_name=vision_result.get("analyzer_name", "CivicVisionPipeline"),
+            model_version=vision_result.get("model_version", "1.0.0"),
+            inference_time_ms=vision_result.get("inference_time_ms", 1.0),
+            processing_status=vision_result.get("processing_status", "completed"),
+            policy_note=vision_result.get("policy_note"),
+            is_overridden=False
         )
         db.add(prediction_record)
 
@@ -168,7 +176,7 @@ class ReportService:
             new_state={
                 "status": "Submitted",
                 "category": category.name,
-                "ai_predicted_category": pred_category.name,
+                "ai_predicted_category": suggested_category.name if suggested_category else category.name,
                 "confidence": confidence,
                 "priority": prio_result["priority_level"]
             },
@@ -294,6 +302,12 @@ class ReportService:
             v_cat = db.query(Category).filter(Category.code == verified_category_code).first()
             if v_cat:
                 report.verified_category_id = v_cat.id
+                if report.ai_prediction:
+                    report.ai_prediction.is_overridden = True
+                    report.ai_prediction.override_category_id = v_cat.id
+                    report.ai_prediction.override_user_id = user_id
+                    report.ai_prediction.override_notes = notes
+                    report.ai_prediction.override_at = datetime.now(timezone.utc)
 
         if human_severity is not None:
             if not (1 <= human_severity <= 10):

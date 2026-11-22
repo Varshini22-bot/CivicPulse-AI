@@ -63,16 +63,25 @@ def serialize_report_detail(r: Report) -> dict:
         p = r.ai_prediction
         pred_cat_name = p.predicted_category.name if p.predicted_category else "Unknown"
         pred_cat_code = p.predicted_category.code if p.predicted_category else "unknown"
+        sugg_cat_name = p.suggested_category.name if getattr(p, "suggested_category", None) else None
+        sugg_cat_code = p.suggested_category.code if getattr(p, "suggested_category", None) else None
+        over_cat_code = p.override_category.code if getattr(p, "override_category", None) else None
         ai_pred = {
             "predicted_category_code": pred_cat_code,
             "predicted_category_name": pred_cat_name,
+            "suggested_category_code": sugg_cat_code,
+            "suggested_category_name": sugg_cat_name,
             "confidence": p.confidence,
+            "detections": p.detections or [],
             "raw_predictions": p.raw_predictions,
             "detected_features": p.detected_features,
             "model_name": p.model_name,
             "model_version": p.model_version,
             "inference_time_ms": p.inference_time_ms,
-            "processing_status": p.processing_status
+            "processing_status": p.processing_status,
+            "policy_note": p.policy_note,
+            "is_overridden": getattr(p, "is_overridden", False),
+            "override_category_code": over_cat_code
         }
         
     # Priority record

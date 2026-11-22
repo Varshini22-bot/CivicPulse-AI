@@ -66,13 +66,19 @@ class DepartmentOut(BaseModel):
 class AIPredictionOut(BaseModel):
     predicted_category_code: str
     predicted_category_name: str
+    suggested_category_code: Optional[str] = None
+    suggested_category_name: Optional[str] = None
     confidence: float
+    detections: List[Dict[str, Any]] = []
     raw_predictions: Optional[Dict[str, float]] = None
     detected_features: Optional[Dict[str, Any]] = None
     model_name: str
     model_version: str
     inference_time_ms: float
     processing_status: str
+    policy_note: Optional[str] = None
+    is_overridden: bool = False
+    override_category_code: Optional[str] = None
 
 class PriorityScoreOut(BaseModel):
     severity_component: float

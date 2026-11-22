@@ -42,10 +42,14 @@ class SeverityService:
         visual_features: Dict[str, Any],
         description: str,
         base_severity: Optional[int] = None,
-        db: Optional[Any] = None
+        db: Optional[Any] = None,
+        detection_count: Optional[int] = None,
+        relative_box_area: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Estimate physical defect severity (1-10) with explainable component breakdown.
+        Optionally incorporates localized object detection bounding box areas without claiming
+        absolute real-world cm measurements.
         """
         desc_lower = (description or "").lower()
 
@@ -72,9 +76,22 @@ class SeverityService:
         elif ed > 0.07 or dp > 0.20:
             visual_intensity = 1
 
+        reasons = []
+
+        # Optional localized bounding box detection input
+        if relative_box_area is not None and relative_box_area > 0.0:
+            count = detection_count or 1
+            if relative_box_area > 0.15 or count >= 3:
+                visual_intensity = max(visual_intensity, 2)
+                reasons.append(f"Visual severity estimated from relative defect area ({relative_box_area:.1%}, {count} instance(s)); no real-world scale.")
+            elif relative_box_area > 0.04 or count >= 1:
+                visual_intensity = max(visual_intensity, 1)
+                reasons.append(f"Visual severity estimated from relative defect area ({relative_box_area:.1%}); no real-world scale.")
+        elif visual_intensity > 0:
+            reasons.append(f"Visual texture intensity index shows marked surface disruption (+{visual_intensity}).")
+
         # 3. Structural defect extent from description (0 to +2)
         structural_damage = 0
-        reasons = []
 
         if any(w in desc_lower for w in cls.STRUCTURAL_DAMAGE_KEYWORDS):
             structural_damage = 2
@@ -82,9 +99,6 @@ class SeverityService:
         elif any(w in desc_lower for w in cls.MODERATE_DAMAGE_KEYWORDS):
             structural_damage = 1
             reasons.append("Moderate surface degradation keywords identified.")
-
-        if visual_intensity > 0:
-            reasons.append(f"Visual texture intensity index shows marked surface disruption (+{visual_intensity}).")
 
         # 4. Base severity adjustments
         raw_severity = base + visual_intensity + structural_damage
@@ -109,7 +123,7 @@ class SeverityService:
 
         reasons.append(f"Assigned base physical severity of {base}/10 for category '{category_code}'.")
 
-        return {
+        res_dict = {
             "severity_score": severity_score,
             "severity_label": severity_label,
             "visual_intensity_component": visual_intensity,
@@ -117,3 +131,12 @@ class SeverityService:
             "structural_damage_component": structural_damage,
             "explanation": " ".join(reasons)
         }
+
+        if relative_box_area is not None:
+            res_dict["detection_metrics"] = {
+                "detection_count": detection_count or 0,
+                "relative_box_area": relative_box_area,
+                "scale_note": "Estimated from relative defect area; no real-world physical scale."
+            }
+
+        return res_dict
