@@ -14,6 +14,8 @@ METHODOLOGY & HARDENING:
 - Rigorous Validation/Test Split (50% validation, 50% held-out test).
 - Threshold Selection: Optimal F1 threshold is selected exclusively on the validation set.
 - Test Reporting: Precision, Recall, F1, and 95% bootstrap confidence intervals are computed on the held-out test set.
+- Statistical Caveat: pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity
+  among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim.
 - Label: 'synthetic fixtures, augmentation positives'.
 """
 
@@ -298,9 +300,15 @@ def run_duplicate_evaluation(
     print(f"  Test Recall:    {test_metrics_clip['recall']:.1%} (95% CI: [{test_metrics_clip['recall_95ci'][0]:.1%}, {test_metrics_clip['recall_95ci'][1]:.1%}])")
     print(f"  Test F1-Score:  {test_metrics_clip['f1_score']:.3f} (95% CI: [{test_metrics_clip['f1_95ci'][0]:.3f}, {test_metrics_clip['f1_95ci'][1]:.3f}])\n")
 
+    print("--- Statistical Interpretation & Comparative Caveat ---")
+    print("  Note: pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual")
+    print("  similarity among synthetic fixtures; CLIP vs pHash confidence intervals overlap,")
+    print("  so no superiority claim is made.\n")
+
     results = {
         "benchmark_label": "synthetic fixtures, augmentation positives",
         "methodology": "50/50 validation/test split; thresholds selected on validation only; evaluated on held-out test with hard negatives.",
+        "statistical_interpretation": "pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim.",
         "disclaimer": "Smoke test on synthetic fixtures; not evidence of real-world duplicate performance.",
         "total_pairs": len(pairs),
         "validation_pairs": len(val_pairs),

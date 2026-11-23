@@ -34,7 +34,7 @@ from app.services.priority_service import PriorityService
 
 
 def run_priority_sensitivity_analysis(
-    sample_size: int = 100,
+    sample_size: int = 140,
     n_iterations: int = 200,
     seed: int = 42
 ) -> Dict[str, Any]:

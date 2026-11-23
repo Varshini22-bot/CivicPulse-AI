@@ -12,50 +12,50 @@
   "results": {
     "5%": {
       "jitter_percentage": "5%",
-      "mean_kendall_tau": 0.975,
-      "tau_std": 0.011,
+      "mean_kendall_tau": 0.988,
+      "tau_std": 0.005,
       "tau_95ci": [
-        0.956,
-        0.993
+        0.979,
+        0.995
       ],
-      "min_tau": 0.956,
-      "mean_top10_overlap": 0.92,
+      "min_tau": 0.977,
+      "mean_top10_overlap": 1.0,
       "rank_stability": "Very High"
     },
     "10%": {
       "jitter_percentage": "10%",
-      "mean_kendall_tau": 0.963,
-      "tau_std": 0.015,
+      "mean_kendall_tau": 0.981,
+      "tau_std": 0.005,
       "tau_95ci": [
-        0.937,
-        0.984
+        0.97,
+        0.986
       ],
-      "min_tau": 0.937,
-      "mean_top10_overlap": 0.91,
+      "min_tau": 0.968,
+      "mean_top10_overlap": 1.0,
       "rank_stability": "Very High"
     },
     "15%": {
       "jitter_percentage": "15%",
-      "mean_kendall_tau": 0.958,
-      "tau_std": 0.016,
+      "mean_kendall_tau": 0.978,
+      "tau_std": 0.009,
       "tau_95ci": [
-        0.937,
-        0.988
+        0.963,
+        0.996
       ],
-      "min_tau": 0.937,
-      "mean_top10_overlap": 0.9,
+      "min_tau": 0.963,
+      "mean_top10_overlap": 1.0,
       "rank_stability": "Very High"
     },
     "20%": {
       "jitter_percentage": "20%",
-      "mean_kendall_tau": 0.936,
-      "tau_std": 0.026,
+      "mean_kendall_tau": 0.963,
+      "tau_std": 0.016,
       "tau_95ci": [
-        0.883,
-        0.97
+        0.935,
+        0.991
       ],
-      "min_tau": 0.876,
-      "mean_top10_overlap": 0.875,
+      "min_tau": 0.935,
+      "mean_top10_overlap": 1.0,
       "rank_stability": "Very High"
     }
   },

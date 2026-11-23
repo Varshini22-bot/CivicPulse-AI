@@ -4,7 +4,7 @@
 **Auditor Role**: Senior AI/ML Engineer & Systems Code Reviewer  
 **Repository**: CivicPulse AI (FastAPI + React 19/TypeScript + PostgreSQL/PostGIS / SQLite + Docker)  
 **Target Candidate**: B.E. Artificial Intelligence & Data Science Student Portfolio Project  
-**Status**: **ALL PHASES (0 THROUGH 8) COMPLETE — RELEASE READY (`v1.0.2`)**
+**Status**: **ALL PHASES (0 THROUGH 8b) COMPLETE — RELEASE READY (`v1.0.3`)**
 
 ---
 
@@ -611,6 +611,32 @@ All deliverables for Phase 8 Hardening have been completed, verified, and commit
 5. **Operational Limitations Document (`LIMITATIONS.md`)**:
    - Authored comprehensive standalone document covering synthetic fixtures, OpenCLIP image-only OOD accuracy (10.0%), redaction scope (faces only, plates not implemented), lack of live municipal agency integration, expert-set constants, and lack of single-image metric depth.
 6. **Release**: Merged into `main`, tagged `v1.0.2`.
+
+---
+
+## 17. Phase 8b: Cross-Document Consistency & Transparency (`v1.0.3`)
+
+All deliverables for Phase 8b Consistency have been completed and verified on branch `phase-8b-consistency`.
+
+### 17.1 Key Deliverables Implemented
+1. **Synchronized Seeded Records Count (140 Reports)**:
+   - Verified exact database count: 140 synthetic records (135 base civic reports + 5 intentional duplicate cluster pairings across 12 Bengaluru localities).
+   - Ensured deterministic seeding in `backend/app/database/seed_data.py` by pinning `random.seed(42)` and ensuring fallback anchor resolution for duplicate candidate generation.
+   - Synchronized the exact count of 140 across `README.md`, `DATA_CARD.md`, `LIMITATIONS.md`, `MODEL_CARD.md`, `EVIDENCE.md`, and `ml/eval/priority_sensitivity.py`.
+2. **Two-Tier Spatial Duplicate Gating Explained**:
+   - Resolved the relationship between the 50m spatial pre-filter and per-category matching radii across `README.md`, `MODEL_CARD.md`, `DATA_CARD.md`, and `LIMITATIONS.md`:
+     - *Coarse Spatial Pre-Filter ($\le 50\text{m}$ / Bounding Box)*: Applied at SQL query level to bound neighbor retrieval and avoid full-table scans.
+     - *Fine-Grained Per-Category Duplicate Threshold ($15\text{m} - 35\text{m} + 10\text{m}$ GPS margin)*: Applied to each candidate pair to enforce defect-specific physical boundaries (e.g. 30m max for potholes, 45m max for streetlights).
+3. **Comparative Evaluation Statistical Caveat (CLIP vs. pHash)**:
+   - Added explicit statistical caveat in `ml/eval/evaluate_duplicates.py`, `ml/eval/duplicate_benchmark_results.json`, `README.md`, `MODEL_CARD.md`, and `LIMITATIONS.md`:
+     *"pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim."*
+   - Removed all phrasing implying embeddings clearly outperform pHash on synthetic fixtures.
+4. **Image Storage & Unredacted Original Lifecycle Documented**:
+   - Verified that uploaded citizen photos are saved to server disk in `backend/uploads/` (or `/app/uploads` volume in Docker) under UUID filenames.
+   - Confirmed that EXIF/GPS metadata is stripped on ingestion, and `PrivacyService.anonymize_image()` performs in-place file overwrite on disk with Gaussian blur.
+   - Verified that the server **does NOT retain, archive, or serve unredacted original images**.
+   - Documented the critical limitation that missed non-frontal faces and unredacted vehicle license plates (which are not implemented) remain in the stored and served image rasters.
+5. **Release**: Merged into `main`, tagged `v1.0.3`.
 
 
 

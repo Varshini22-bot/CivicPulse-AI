@@ -17,6 +17,7 @@ def seed_database(db: Session, force: bool = False):
     Populates realistic Bengaluru municipal civic dataset.
     Clearly annotated as [DEMO DATA] for development and evaluation.
     """
+    random.seed(42)
     # Check if already seeded
     existing_reports = db.query(Report).count()
     if existing_reports > 10 and not force:
@@ -565,11 +566,11 @@ def seed_database(db: Session, force: bool = False):
 
     for area_name, cat_code, base_lat, base_lng in duplicate_hubs:
         cat = cat_map[cat_code]
-        # Find an existing report in this area & category
+        # Find an existing report in this area & category (or fallback to category)
         anchor_report = db.query(Report).filter(
             Report.area == area_name,
             Report.category_id == cat.id
-        ).first()
+        ).first() or db.query(Report).filter(Report.category_id == cat.id).first()
 
         if anchor_report:
             # Create a duplicate citizen report 18 meters away
@@ -611,6 +612,24 @@ def seed_database(db: Session, force: bool = False):
                 notes="High-confidence duplicate: within 18.4m of canonical issue #1042, matching category, submitted 3 hours apart."
             )
             db.add(dup_link)
+
+            # Record duplicate priority score
+            if anchor_report.priority_record:
+                apr = anchor_report.priority_record
+                dup_prio = PriorityScore(
+                    report_id=dup_report.id,
+                    severity_component=apr.severity_component,
+                    safety_component=apr.safety_component,
+                    location_risk_component=apr.location_risk_component,
+                    community_impact_component=apr.community_impact_component,
+                    age_component=apr.age_component,
+                    final_score=apr.final_score,
+                    priority_level=apr.priority_level,
+                    explanation_json=apr.explanation_json,
+                    scoring_version=apr.scoring_version,
+                    created_at=dup_report.created_at
+                )
+                db.add(dup_prio)
 
     db.commit()
     total_final = db.query(Report).count()
