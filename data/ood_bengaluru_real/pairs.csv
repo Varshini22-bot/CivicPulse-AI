@@ -1,0 +1,4 @@
+image_a,image_b,is_same_defect,category,distance_meters,notes
+# Template examples (replace with your real photo pairs):
+# pothole_blr_01a.jpg,pothole_blr_01b.jpg,1,pothole,4.2,"Same pothole photographed from north and east angles"
+# pothole_blr_01a.jpg,pothole_blr_02.jpg,0,pothole,85.0,"Hard negative: different pothole on same road section"

@@ -1,0 +1,5 @@
+image_filename,category,notes,timestamp,latitude,longitude
+# Template examples (replace with your real photos once taken):
+# pothole_blr_01.jpg,pothole,"Deep crater on 80ft road near edge",2026-11-23T10:15:00Z,12.9352,77.6245
+# garbage_blr_01.jpg,garbage_overflow,"Overflowing municipal bin at corner",2026-11-23T10:45:00Z,12.9784,77.6408
+# streetlight_blr_01.jpg,broken_streetlight,"Unlit pole fixture near bus stop",2026-11-23T19:30:00Z,12.9116,77.6389

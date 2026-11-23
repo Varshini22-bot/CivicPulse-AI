@@ -91,3 +91,19 @@ This script provides a step-by-step walkthrough for project demonstrations, port
 
 ## Summary Wrap-Up
 *"In summary, CivicPulse AI bridges citizen engagement, machine learning, spatial data engineering, and municipal operations into an accountable, transparent platform."*
+
+---
+
+## 🎥 2-3 Minute Video Walkthrough: Shot List & Storyboard
+
+This streamlined shot list is optimized for screen-recording a concise, high-impact 2 to 3 minute portfolio video (e.g. for Loom, YouTube, or LinkedIn).
+
+| Shot # | Timecode | Screen / Visual Target | On-Screen Action | Audio / Voiceover Narration |
+| :--- | :--- | :--- | :--- | :--- |
+| **Shot 1** | `0:00 - 0:20` | Landing Page (`/`) | Scroll hero section; point to the persistent **"DEMO / SYNTHETIC DATA"** banner and live KPI metric tiles. | *"This is CivicPulse AI, an intelligent civic infrastructure monitoring and municipal prioritization platform for Bengaluru. Every piece of demonstration data is transparently flagged as synthetic."* |
+| **Shot 2** | `0:20 - 0:45` | Mobile Report Page (`/report`) | Toggle Chrome DevTools to mobile viewport (375x812). Click *Get Current Location*, select *Pothole*, type description. | *"Citizens report civic defects mobile-first. They capture defect photos and pinpoint GPS coordinates with accuracy circle overlays. Notice that citizen category selection is authoritative—AI provides suggestions without silent overrides."* |
+| **Shot 3** | `0:45 - 1:10` | Pre-Submission Duplicate Modal | Type a nearby location and trigger duplicate detection modal showing photo comparison and upvote button. | *"Before submitting, our spatial duplicate service scans within category-specific radii (e.g. 35m for potholes, 90m for streetlights) combining Haversine distance, temporal decay, and OpenCLIP semantic embeddings, allowing citizens to upvote existing tickets rather than filing redundant reports."* |
+| **Shot 4** | `1:10 - 1:40` | Admin Dashboard & Priority Queue (`/admin`) | Log into Admin Console. Click a top-priority report; show the 5-factor Priority v2 radar/breakdown drawer. | *"Municipal engineers manage incoming reports through an explainable triage queue. Priority v2 combines physical defect severity, public safety risk, OpenStreetMap POI sensitivity (like hospitals and schools), community upvotes, and continuous saturating age escalation to prevent ticket starvation."* |
+| **Shot 5** | `1:40 - 2:10` | Interactive GIS Map & Corridors (`/map`) | Navigate to City Map. Toggle HDBSCAN clusters, then toggle *Chronic Defect Corridors*. Click a corridor popup. | *"The geospatial engine clusters defects using spherical HDBSCAN. When multiple defects recur on the same road segment, the platform flags a Chronic Corridor with root-cause engineering advisories, recommending structural sub-base analysis over superficial asphalt patches."* |
+| **Shot 6** | `2:10 - 2:35` | Resolution Verification Drawer (`/admin/triage`) | Open an issue awaiting resolution audit. Show before/after image comparison with CLIP similarity and GPS delta. | *"When field crews upload a completion photo, the automated audit verifies that the capture occurred within 50 meters, computes OpenCLIP scene cosine similarity, and checks defect disappearance. Discrepancies are flagged for human supervisor sign-off."* |
+| **Shot 7** | `2:35 - 3:00` | Code / Tech Stack Slide (`README.md`) | Display system architecture diagram; highlight test suite passing badge (72+ tests) and clean repo structure. | *"Built with FastAPI, React 19, TypeScript, PostgreSQL/PostGIS, and OpenCLIP, CivicPulse AI represents an end-to-end, scientifically honest software engineering capstone."* |

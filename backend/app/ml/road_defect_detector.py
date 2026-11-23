@@ -29,7 +29,13 @@ class RoadDefectDetector(BaseAnalyzer):
     }
 
     def __init__(self, model_path: Optional[str] = None):
-        self.model_path = model_path or getattr(settings, "ROAD_DEFECT_MODEL_PATH", "backend/app/ml/weights/road_detector.onnx")
+        candidate_paths = [
+            model_path,
+            getattr(settings, "ROAD_DEFECT_MODEL_PATH", None),
+            "models/rdd2022_yolov8n.onnx",
+            "backend/app/ml/weights/road_detector.onnx"
+        ]
+        self.model_path = next((p for p in candidate_paths if p and os.path.exists(p)), model_path or "models/rdd2022_yolov8n.onnx")
         self.session = None
         self._load_onnx_model()
 

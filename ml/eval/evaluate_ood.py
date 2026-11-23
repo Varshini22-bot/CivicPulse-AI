@@ -1,15 +1,9 @@
 """
 Fixture Smoke Test & Out-of-Distribution Evaluation
 ===================================================
-Evaluates the CivicPulse AI Computer Vision analyzers against the 20-sample
-Bengaluru fixture smoke test set (data/ood_bengaluru/labels.csv and images).
-
-Data Provenance Disclosure:
----------------------------
-- The 20 records in labels.csv and the images in data/ood_bengaluru/images/ are
-  reproducible fixture smoke test instances created to verify code paths.
-- They are NOT real field photographs submitted by end users.
-- Results are reported strictly as "fixture smoke test only, not evidence of performance".
+Evaluates the CivicPulse AI Computer Vision analyzers against either:
+1. Synthetic Fixture Smoke Test (default: data/ood_bengaluru/ - N=20).
+2. Authentic Bengaluru Real-Photo Dataset (--dataset real: data/ood_bengaluru_real/).
 
 Evaluation Methodology:
 -----------------------
@@ -29,7 +23,7 @@ import math
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 
 # Add backend to path
@@ -87,27 +81,53 @@ def bootstrap_macro_f1(
 
 
 def run_ood_evaluation(
-    labels_csv_path: str = "data/ood_bengaluru/labels.csv",
-    images_dir: str = "data/ood_bengaluru/images"
-) -> Dict[str, Any]:
+    dataset_type: str = "fixtures",
+    labels_csv_path: Optional[str] = None,
+    images_dir: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """
     Evaluates analyzers under both Image-Only and Multimodal modes.
     """
+    is_real = (dataset_type == "real")
+    if labels_csv_path is None:
+        labels_csv_path = "data/ood_bengaluru_real/labels.csv" if is_real else "data/ood_bengaluru/labels.csv"
+    if images_dir is None:
+        images_dir = "data/ood_bengaluru_real/images" if is_real else "data/ood_bengaluru/images"
+
     if not os.path.exists(labels_csv_path):
-        raise FileNotFoundError(f"OOD labels file not found at: {labels_csv_path}")
+        print(f"[OOD Evaluation] Labels file not found at: {labels_csv_path}")
+        return None
 
     records = []
     with open(labels_csv_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+        reader = csv.DictReader((line for line in f if not line.startswith("#")))
         for row in reader:
             records.append(row)
 
     n_samples = len(records)
+    if n_samples == 0:
+        if is_real:
+            print("\n" + "=" * 80)
+            print("CIVICPULSE AI — REAL PHOTO EVALUATION")
+            print("No labeled records found in data/ood_bengaluru_real/labels.csv (Template State).")
+            print("To benchmark on real phone photos, follow docs/PHOTO_GUIDE.md to add images and labels.")
+            print("=" * 80 + "\n")
+            return None
+        else:
+            raise ValueError(f"No records found in fixture labels file: {labels_csv_path}")
+
+    dataset_label = f"real phone photos, N={n_samples}, single annotator" if is_real else f"synthetic fixtures (N={n_samples})"
+    disclaimer = (
+        f"Evaluated on authentic phone photographs collected across Bengaluru ({dataset_label})."
+        if is_real
+        else "Smoke test only, not evidence of performance. Evaluated on synthetic fixture dataset (N=20)."
+    )
+
     print("\n" + "=" * 80)
-    print("      CIVICPULSE AI — FIXTURE SMOKE TEST EVALUATION")
-    print("      (Synthetic metadata & fixture images — smoke test only, not evidence of performance)")
+    print(f"      CIVICPULSE AI — OUT-OF-DISTRIBUTION EVALUATION ({dataset_label.upper()})")
+    print(f"      ({disclaimer})")
     print("=" * 80)
-    print(f"Sample Count: N = {n_samples} fixture records")
+    print(f"Sample Count: N = {n_samples} records")
     print(f"Images Path:  {images_dir}")
     print(f"Confidence Level: 95% Wilson Score Interval (Acc) & 1,000-sample Bootstrap (F1)\n")
 
@@ -122,7 +142,10 @@ def run_ood_evaluation(
     ]
 
     results_table = {
-        "evaluation_disclaimer": "Smoke test only, not evidence of performance. Evaluated on synthetic fixture dataset (N=20).",
+        "dataset_type": dataset_type,
+        "benchmark_label": dataset_label,
+        "evaluation_disclaimer": disclaimer,
+        "sample_count": n_samples,
         "image_only_evaluation": {},
         "multimodal_evaluation": {}
     }
@@ -142,9 +165,14 @@ def run_ood_evaluation(
         correct_count = 0
 
         for r in records:
-            gt_cat = r["ground_truth_category"]
-            img_id = r["image_id"]
-            img_path = os.path.join(images_dir, f"{img_id}.jpg") if os.path.exists(os.path.join(images_dir, f"{img_id}.jpg")) else None
+            gt_cat = r.get("ground_truth_category") or r.get("category", "")
+            img_id = r.get("image_id") or r.get("image_filename", "")
+            # Resolve image filename with or without extension
+            if img_id and (img_id.endswith(".jpg") or img_id.endswith(".png")):
+                target_filename = img_id
+            else:
+                target_filename = f"{img_id}.jpg"
+            img_path = os.path.join(images_dir, target_filename) if os.path.exists(os.path.join(images_dir, target_filename)) else None
 
             # Execute Image-Only inference (description="", user_hint=None)
             res = analyzer.analyze(image_path=img_path, description="", user_hint=None)
@@ -196,10 +224,14 @@ def run_ood_evaluation(
         correct_count = 0
 
         for r in records:
-            gt_cat = r["ground_truth_category"]
+            gt_cat = r.get("ground_truth_category") or r.get("category", "")
             desc = r.get("notes", "")
-            img_id = r["image_id"]
-            img_path = os.path.join(images_dir, f"{img_id}.jpg") if os.path.exists(os.path.join(images_dir, f"{img_id}.jpg")) else None
+            img_id = r.get("image_id") or r.get("image_filename", "")
+            if img_id and (img_id.endswith(".jpg") or img_id.endswith(".png")):
+                target_filename = img_id
+            else:
+                target_filename = f"{img_id}.jpg"
+            img_path = os.path.join(images_dir, target_filename) if os.path.exists(os.path.join(images_dir, target_filename)) else None
 
             # Execute Multimodal inference with citizen description text, but user_hint=None
             res = analyzer.analyze(image_path=img_path, description=desc, user_hint=None)
@@ -236,19 +268,20 @@ def run_ood_evaluation(
         print(f"  - Macro F1:     {f1:.3f} (95% CI: [{f1_ci[0]:.3f}, {f1_ci[1]:.3f}])")
         print(f"  - Abstain Rate: {abstain_rate:.1%} ({abstain_count}/{n_samples} reports)\n")
 
-    out_path = Path("ml/eval/ood_benchmark_results.json")
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as f:
+    out_file = Path("ml/eval/ood_benchmark_results_real.json" if is_real else "ml/eval/ood_benchmark_results.json")
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
         json.dump(results_table, f, indent=2)
 
-    print(f"Detailed smoke test results saved to: {out_path}\n")
+    print(f"Detailed results saved to: {out_file}\n")
     return results_table
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Fixture Smoke Test Evaluation")
-    parser.add_argument("--labels", type=str, default="data/ood_bengaluru/labels.csv")
-    parser.add_argument("--images", type=str, default="data/ood_bengaluru/images")
+    parser = argparse.ArgumentParser(description="Run Fixture Smoke Test or Real Photo Evaluation")
+    parser.add_argument("--dataset", type=str, choices=["fixtures", "real"], default="fixtures", help="Dataset type")
+    parser.add_argument("--labels", type=str, default=None, help="Custom labels CSV path")
+    parser.add_argument("--images", type=str, default=None, help="Custom images directory")
     args = parser.parse_args()
 
-    run_ood_evaluation(args.labels, args.images)
+    run_ood_evaluation(dataset_type=args.dataset, labels_csv_path=args.labels, images_dir=args.images)

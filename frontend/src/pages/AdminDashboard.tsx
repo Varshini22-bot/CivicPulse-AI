@@ -151,6 +151,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             <div className="flex flex-wrap items-center gap-3">
               {/* Category Filter */}
               <select
+                aria-label="Filter by Category"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-teal-500"
@@ -163,6 +164,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
               {/* Priority Filter */}
               <select
+                aria-label="Filter by Priority"
                 value={selectedPriority}
                 onChange={(e) => setSelectedPriority(e.target.value)}
                 className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-teal-500"
@@ -176,6 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
               {/* Area Filter */}
               <select
+                aria-label="Filter by Municipal Ward"
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
                 className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-teal-500"
@@ -194,6 +197,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
               {/* Date Filter */}
               <select
+                aria-label="Filter by Time Period"
                 value={selectedDays || ''}
                 onChange={(e) => setSelectedDays(e.target.value ? parseInt(e.target.value) : undefined)}
                 className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-teal-500"

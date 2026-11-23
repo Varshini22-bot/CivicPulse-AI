@@ -1,5 +1,8 @@
 {
+  "dataset_type": "fixtures",
+  "benchmark_label": "synthetic fixtures (N=20)",
   "evaluation_disclaimer": "Smoke test only, not evidence of performance. Evaluated on synthetic fixture dataset (N=20).",
+  "sample_count": 20,
   "image_only_evaluation": {
     "Heuristic Baseline": {
       "samples": 20,

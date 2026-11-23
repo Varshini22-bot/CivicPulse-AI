@@ -699,8 +699,10 @@ export const IssueDetailsPage: React.FC<IssueDetailsPageProps> = ({ reportId, on
       >
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Verified Category</label>
+            <label htmlFor="verified-category" className="text-xs font-semibold text-slate-700">Verified Category</label>
             <select
+              id="verified-category"
+              aria-label="Verified Category"
               value={overrideCategory}
               onChange={(e) => setOverrideCategory(e.target.value)}
               className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-teal-500"
@@ -769,8 +771,10 @@ export const IssueDetailsPage: React.FC<IssueDetailsPageProps> = ({ reportId, on
       >
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Target Status</label>
+            <label htmlFor="target-status" className="text-xs font-semibold text-slate-700">Target Status</label>
             <select
+              id="target-status"
+              aria-label="Target Status"
               value={targetStatus}
               onChange={(e) => setTargetStatus(e.target.value)}
               className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-teal-500"

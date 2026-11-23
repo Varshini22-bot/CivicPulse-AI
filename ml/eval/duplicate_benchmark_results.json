@@ -1,4 +1,5 @@
 {
+  "dataset_type": "fixtures",
   "benchmark_label": "synthetic fixtures, augmentation positives",
   "methodology": "50/50 validation/test split; thresholds selected on validation only; evaluated on held-out test with hard negatives.",
   "statistical_interpretation": "pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim.",

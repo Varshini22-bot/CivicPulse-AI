@@ -67,7 +67,7 @@ def test_location_risk_keyword_fallback():
 
 def test_priority_sensitivity_benchmark_executes_cleanly():
     """Smoke test ensuring Monte Carlo sensitivity analysis runs and outputs valid Kendall's tau."""
-    res = run_priority_sensitivity_analysis(sample_size=30, n_iterations=20, seed=42)
+    res = run_priority_sensitivity_analysis(sample_size=30, n_iterations=20, seed=42, save_results=False)
     assert "results" in res
     assert "10%" in res["results"]
     tau_10 = res["results"]["10%"]["mean_kendall_tau"]

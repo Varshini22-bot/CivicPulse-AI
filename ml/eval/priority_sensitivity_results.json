@@ -1,7 +1,7 @@
 {
   "analysis_name": "Priority Formula Sensitivity & Rank Correlation Benchmark",
-  "sample_size": 30,
-  "iterations_per_level": 20,
+  "sample_size": 140,
+  "iterations_per_level": 200,
   "baseline_weights": {
     "severity": 0.35,
     "safety": 0.25,
@@ -12,50 +12,50 @@
   "results": {
     "5%": {
       "jitter_percentage": "5%",
-      "mean_kendall_tau": 0.988,
-      "tau_std": 0.005,
+      "mean_kendall_tau": 0.989,
+      "tau_std": 0.003,
       "tau_95ci": [
-        0.979,
+        0.982,
         0.995
       ],
-      "min_tau": 0.977,
-      "mean_top10_overlap": 1.0,
+      "min_tau": 0.98,
+      "mean_top10_overlap": 0.986,
       "rank_stability": "Very High"
     },
     "10%": {
       "jitter_percentage": "10%",
-      "mean_kendall_tau": 0.981,
-      "tau_std": 0.005,
+      "mean_kendall_tau": 0.98,
+      "tau_std": 0.006,
       "tau_95ci": [
         0.97,
-        0.986
+        0.992
       ],
       "min_tau": 0.968,
-      "mean_top10_overlap": 1.0,
+      "mean_top10_overlap": 0.945,
       "rank_stability": "Very High"
     },
     "15%": {
       "jitter_percentage": "15%",
-      "mean_kendall_tau": 0.978,
-      "tau_std": 0.009,
+      "mean_kendall_tau": 0.972,
+      "tau_std": 0.008,
       "tau_95ci": [
-        0.963,
-        0.996
+        0.952,
+        0.987
       ],
-      "min_tau": 0.963,
-      "mean_top10_overlap": 1.0,
+      "min_tau": 0.943,
+      "mean_top10_overlap": 0.919,
       "rank_stability": "Very High"
     },
     "20%": {
       "jitter_percentage": "20%",
-      "mean_kendall_tau": 0.963,
-      "tau_std": 0.016,
+      "mean_kendall_tau": 0.962,
+      "tau_std": 0.012,
       "tau_95ci": [
-        0.935,
-        0.991
+        0.934,
+        0.981
       ],
-      "min_tau": 0.935,
-      "mean_top10_overlap": 1.0,
+      "min_tau": 0.929,
+      "mean_top10_overlap": 0.904,
       "rank_stability": "Very High"
     }
   },

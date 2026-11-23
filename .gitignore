@@ -45,10 +45,25 @@ frontend/coverage/
 civicpulse.db
 civicpulse.db.bak
 
-# User Uploads (keep directory structure)
+# User Uploads & Media (keep directory structure)
 uploads/*
 !uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
 data/ood_bengaluru/augmented_pairs/
+data/ood_bengaluru_real/images/*
+!data/ood_bengaluru_real/images/.gitkeep
+
+# Machine Learning Models & Heavy Artifacts
+models/*.onnx
+models/*.pt
+!models/.gitkeep
+!models/README.md
+backend/app/ml/weights/*.onnx
+backend/app/ml/weights/*.pt
+!backend/app/ml/weights/.gitkeep
+data/raw/
+runs/
 
 # Environment variables
 .env

@@ -68,7 +68,7 @@ To maintain database query efficiency while enforcing physical defect boundaries
 | **Priority Component Weights** | $w = [0.35, 0.25, 0.15, 0.15, 0.10]$ | Heuristic | Relative importance of Severity, Risk, Impact, Recurrence, and Age is an uncalibrated policy assumption. |
 | **Continuous Age Escalation Half-Life** | $72\text{ hours}$ ($P_{\text{age}} = 100(1 - e^{-\Delta t/72})$) | Heuristic | Reaches ~50% escalation at 50h; chosen to prevent starvation, not derived from empirical BBMP SLA data. |
 | **POI Location Bonuses** | $+35\%$ (Hospital), $+30\%$ (School/Transit) $\le 100\text{m}$ | Heuristic | Fixed step bonus; does not model pedestrian density, peak transit hours, or patient ingress corridors. |
-| **Duplicate Category Base Radii** | $15\text{m} - 35\text{m}$ category-dependent $+ 10\text{m}$ GPS margin | Heuristic | Fixed radii do not account for GPS multipath errors in dense high-rise urban canyons. |
+| **Duplicate Category Base Radii** | $25\text{m} - 80\text{m}$ category-dependent $+ 10\text{m}$ GPS margin ($35\text{m} - 90\text{m}$ effective matching radius) | Heuristic | Fixed radii do not account for GPS multipath errors in dense high-rise urban canyons. |
 | **DBSCAN / HDBSCAN $\varepsilon$** | $\varepsilon = 300\text{m}$, $\text{min\_samples} = 3$ | Heuristic | Tuned on synthetic spatial distributions; provisional default only. |
 
 > **Sensitivity vs. Correctness**: While Monte Carlo simulations (`ml/eval/priority_sensitivity.py`) across all $N=140$ seeded reports demonstrate high ranking stability under weight perturbations (Kendall's $\tau \ge 0.962$ under $\pm 20\%$ jitter), stability under jitter does **not** prove that the priority ordering aligns with actual municipal triage urgency.
@@ -107,3 +107,13 @@ To maintain database query efficiency while enforcing physical defect boundaries
 - **No Pre-Trained Weights**: The `RoadDefectDetector` (`backend/app/ml/road_defect_detector.py`) does **not** bundle pre-trained weights.
 - **Abstention Contract**: When the model weight file (`models/rdd2022_yolov8n.onnx`) is absent, the detector strictly obeys the `BaseAnalyzer` contract and returns `status="abstain"`. It makes no predictions and incurs zero false positives.
 - **Training Path**: A complete Google Colab training notebook is provided in [`scripts/train_road_defect_detector.ipynb`](scripts/train_road_defect_detector.ipynb) to allow users to train on public benchmarks (e.g. RDD2022 India) and mount their own weights.
+
+---
+
+## 10. Frontend Accessibility (a11y) & WCAG 2.1 Audit
+
+- **Automated Audit**: Audited with `axe-core` via Playwright automation across primary routes (`docs/A11Y_AUDIT_REPORT.json`):
+  - *Landing Page*: 1 violation (`heading-order`, minor heading level skip from `<h1>` to `<h3>` in feature cards).
+  - *Admin Triage & Issue Details*: Minor heading order discrepancies and dynamic SVG map layer accessibility warnings. Select elements and action buttons were retrofitted with explicit `aria-label` and `htmlFor` bindings.
+- **Current Status**: All core interactive controls (triage filters, status transition dropdowns, report submission inputs, modal actions) feature semantic accessible names and keyboard focus outlines. Full WCAG 2.1 AA screen-reader accessibility for third-party dynamic Leaflet map tiles and SVG Recharts remains an operational roadmap item.
+

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     DEMO_DIR: str = os.getenv("DEMO_DIR", "uploads/demo")
+    ROAD_DEFECT_MODEL_PATH: str = os.getenv("ROAD_DEFECT_MODEL_PATH", "models/rdd2022_yolov8n.onnx")
     
     # CORS
     CORS_ORIGINS: List[str] = [

@@ -1,0 +1,24 @@
+{
+  "Landing": {
+    "count": 1,
+    "rules": [
+      "heading-order"
+    ]
+  },
+  "AdminDashboard": {
+    "count": 3,
+    "rules": [
+      "button-name",
+      "heading-order",
+      "select-name"
+    ]
+  },
+  "IssueDetails": {
+    "count": 3,
+    "rules": [
+      "button-name",
+      "heading-order",
+      "select-name"
+    ]
+  }
+}

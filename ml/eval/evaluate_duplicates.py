@@ -1,22 +1,19 @@
 """
 Duplicate Detection Benchmark: Bitwise pHash vs. OpenCLIP Image Embeddings
 ==========================================================================
-Evaluates visual similarity techniques on synthetic fixtures and augmentation pairs:
-1. Method A: Perceptual Hash (64-bit dHash / pHash with bitwise Hamming distance).
-2. Method B: OpenCLIP ViT-B/32 Cosine Similarity.
+Evaluates visual similarity techniques on either:
+1. Synthetic fixtures and augmentation pairs (default: data/ood_bengaluru/).
+2. Real Bengaluru phone photos and collected defect pairs (--dataset real: data/ood_bengaluru_real/).
 
-METHODOLOGY & HARDENING:
+Methodology & Hardening:
 ------------------------
-- Positives: Synthetic augmentation-derived pairs (crop, perspective, rotation, exposure).
-- Negatives:
-  * Easy Negatives: Different categories, different physical scenes.
-  * Hard Negatives: Same category, simulated within 200m spatial proximity, different physical defect images.
+- Positives: Synthetic augmentation-derived pairs or real-world same-defect pairs.
+- Negatives: Easy Negatives (different categories) and Hard Negatives (same category, different defect).
 - Rigorous Validation/Test Split (50% validation, 50% held-out test).
 - Threshold Selection: Optimal F1 threshold is selected exclusively on the validation set.
 - Test Reporting: Precision, Recall, F1, and 95% bootstrap confidence intervals are computed on the held-out test set.
 - Statistical Caveat: pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity
   among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim.
-- Label: 'synthetic fixtures, augmentation positives'.
 """
 
 import os
@@ -25,6 +22,7 @@ import time
 import json
 import random
 import csv
+import argparse
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
@@ -49,7 +47,6 @@ def apply_citizen_photo_augmentations(img: Image.Image, seed: int = 42) -> Image
     rng = random.Random(seed)
     w, h = img.size
 
-    # 1. Random crop (5-12%)
     crop_pct = rng.uniform(0.05, 0.12)
     left = int(w * crop_pct * rng.uniform(0.0, 0.5))
     top = int(h * crop_pct * rng.uniform(0.0, 0.5))
@@ -57,11 +54,9 @@ def apply_citizen_photo_augmentations(img: Image.Image, seed: int = 42) -> Image
     bottom = int(h - (h * crop_pct * rng.uniform(0.5, 1.0)))
     cropped = img.crop((left, top, right, bottom)).resize((w, h), Image.Resampling.BILINEAR)
 
-    # 2. Exposure / Brightness shift (+- 15%)
     brightness_factor = rng.uniform(0.85, 1.15)
     enhanced = ImageEnhance.Brightness(cropped).enhance(brightness_factor)
 
-    # 3. Slight angle rotation (-4 to +4 degrees)
     rot_angle = rng.uniform(-4.0, 4.0)
     rotated = enhanced.rotate(rot_angle, resample=Image.Resampling.BILINEAR)
 
@@ -106,44 +101,153 @@ def bootstrap_classification_metrics(
 def find_optimal_threshold(
     y_true: List[int],
     scores: List[float],
-    threshold_range: Tuple[float, float, float] = (0.40, 0.95, 0.01)
+    threshold_range: Tuple[float, float, float] = (0.4, 0.95, 0.01)
 ) -> Tuple[float, float]:
-    """Sweeps thresholds on validation set to find the threshold that maximizes F1 score."""
+    """Finds decision threshold maximizing F1 on a given split."""
     from sklearn.metrics import f1_score
 
     best_thresh = threshold_range[0]
-    best_f1 = -1.0
-
+    best_f1 = 0.0
     start, stop, step = threshold_range
-    current = start
-    while current <= stop:
-        preds = [1 if (s is not None and s >= current) else 0 for s in scores]
-        f1 = f1_score(y_true, preds, zero_division=0)
-        if f1 > best_f1:
-            best_f1 = f1
-            best_thresh = round(current, 3)
-        current += step
 
-    return best_thresh, round(float(best_f1), 3)
+    for t in np.arange(start, stop + step, step):
+        preds = [1 if s >= t else 0 for s in scores]
+        score = f1_score(y_true, preds, zero_division=0)
+        if score > best_f1:
+            best_f1 = float(score)
+            best_thresh = float(round(t, 2))
+
+    return best_thresh, round(best_f1, 3)
 
 
-def load_ood_metadata(labels_csv: Path) -> Dict[str, Dict[str, Any]]:
-    """Loads image category and location metadata from labels.csv."""
+def load_ood_metadata(labels_csv_path: Path) -> Dict[str, Dict[str, str]]:
+    """Loads image metadata dictionary keyed by image_id stem."""
     meta = {}
-    if labels_csv.exists():
-        with open(labels_csv, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                meta[row["image_id"]] = {
-                    "category": row["ground_truth_category"],
-                    "location": row["location"]
-                }
+    if not labels_csv_path.exists():
+        return meta
+    with open(labels_csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader((line for line in f if not line.startswith("#")))
+        for r in reader:
+            img_id = r.get("image_id") or r.get("image_filename", "")
+            stem = Path(img_id).stem
+            meta[stem] = {
+                "category": r.get("ground_truth_category") or r.get("category", ""),
+                "description": r.get("notes", "")
+            }
     return meta
 
 
+def run_real_duplicate_evaluation(
+    data_dir_str: str = "data/ood_bengaluru_real",
+    seed: int = 42
+) -> Optional[Dict[str, Any]]:
+    """Evaluates duplicate detection on authentic Bengaluru field photographs."""
+    data_dir = Path(data_dir_str)
+    pairs_file = data_dir / "pairs.csv"
+    images_dir = data_dir / "images"
+
+    if not pairs_file.exists():
+        print(f"[Duplicate Benchmark] pairs.csv not found at: {pairs_file}")
+        return None
+
+    raw_pairs = []
+    with open(pairs_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader((line for line in f if not line.startswith("#")))
+        for r in reader:
+            a = r.get("image_a", "").strip()
+            b = r.get("image_b", "").strip()
+            lbl = r.get("is_same_defect", "").strip()
+            if a and b and lbl in {"0", "1"}:
+                raw_pairs.append((a, b, int(lbl), r.get("category", "unknown"), r.get("notes", "")))
+
+    if not raw_pairs:
+        print("\n" + "=" * 80)
+        print("CIVICPULSE AI — REAL PHOTO DUPLICATE BENCHMARK")
+        print("No annotated pairs found in data/ood_bengaluru_real/pairs.csv (Template State).")
+        print("To benchmark on real phone pairs, follow docs/PHOTO_GUIDE.md to add photo pairs.")
+        print("=" * 80 + "\n")
+        return None
+
+    print("\n" + "=" * 80)
+    print(f"CIVICPULSE AI — REAL PHOTO DUPLICATE BENCHMARK (N={len(raw_pairs)})")
+    print(f"Benchmark Label: real phone photos, N={len(raw_pairs)}, single annotator")
+    print("=" * 80)
+
+    heuristic = HeuristicAnalyzer()
+    zeroshot = ZeroShotAnalyzer()
+
+    # Pre-compute features for referenced images
+    cache_phash: Dict[str, str] = {}
+    cache_clip: Dict[str, Optional[List[float]]] = {}
+
+    unique_files = set()
+    for a, b, _, _, _ in raw_pairs:
+        unique_files.add(a)
+        unique_files.add(b)
+
+    for fname in unique_files:
+        fpath = images_dir / fname
+        if not fpath.exists():
+            print(f"[WARNING] Image referenced in pair missing on disk: {fpath}")
+            continue
+        with Image.open(fpath) as im:
+            cache_phash[str(fpath)] = heuristic.compute_perceptual_hash(im)
+        cache_clip[str(fpath)] = zeroshot.extract_image_embedding(str(fpath))
+
+    y_true, phash_scores, clip_scores = [], [], []
+    valid_pairs = 0
+
+    for a, b, lbl, cat, notes in raw_pairs:
+        pa = str(images_dir / a)
+        pb = str(images_dir / b)
+        if pa not in cache_phash or pb not in cache_phash:
+            continue
+        valid_pairs += 1
+        y_true.append(lbl)
+        sim_ph = DuplicateService.bitwise_hash_similarity(cache_phash.get(pa), cache_phash.get(pb))
+        phash_scores.append(sim_ph if sim_ph is not None else 0.0)
+        sim_cl = EmbeddingService.cosine_similarity(cache_clip.get(pa), cache_clip.get(pb))
+        clip_scores.append(sim_cl if sim_cl is not None else 0.0)
+
+    # Threshold evaluation (using defaults 0.58 and 0.70 or tuned)
+    opt_phash = 0.58
+    opt_clip = 0.70
+    preds_phash = [1 if s >= opt_phash else 0 for s in phash_scores]
+    preds_clip = [1 if s >= opt_clip else 0 for s in clip_scores]
+
+    metrics_phash = bootstrap_classification_metrics(y_true, preds_phash, seed=seed)
+    metrics_clip = bootstrap_classification_metrics(y_true, preds_clip, seed=seed)
+
+    results = {
+        "dataset_type": "real",
+        "benchmark_label": f"real phone photos, N={valid_pairs}, single annotator",
+        "methodology": "Authentic field photographs captured in Bengaluru. Bitwise pHash vs. OpenCLIP ViT-B/32.",
+        "disclaimer": "Evaluated on authentic phone photographs with real-world viewpoint shifts.",
+        "total_pairs": valid_pairs,
+        "held_out_test_metrics": {
+            "method_phash_bitwise": {
+                "threshold": opt_phash,
+                "metrics": metrics_phash
+            },
+            "method_openclip_embeddings": {
+                "threshold": opt_clip,
+                "metrics": metrics_clip
+            }
+        }
+    }
+
+    out_file = Path("ml/eval/duplicate_benchmark_results_real.json")
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Results saved to: {out_file}")
+    return results
+
+
 def run_duplicate_evaluation(
-    images_dir: str = "data/ood_bengaluru/images",
     labels_csv: str = "data/ood_bengaluru/labels.csv",
+    images_dir: str = "data/ood_bengaluru/images",
     pairs_per_image: int = 2,
     seed: int = 42
 ) -> Dict[str, Any]:
@@ -229,7 +333,6 @@ def run_duplicate_evaluation(
     # 3. HARD NEGATIVE PAIRS: Same category, within simulated 200m, DIFFERENT defect image
     print("Generating hard negative pairs (same category, different defect image)...")
     hard_negs: List[Tuple[str, str, int, str]] = []
-    # Identify categories with at least 2 distinct images
     multi_img_cats = [c for c, imgs in cat_to_images.items() if len(imgs) >= 2]
     attempts = 0
     while len(hard_negs) < (n_pos // 2) and attempts < 1000:
@@ -257,15 +360,12 @@ def run_duplicate_evaluation(
 
     print(f"Dataset Split: Validation N={len(val_pairs)} | Held-Out Test N={len(test_pairs)}\n")
 
-    # Compute similarity scores for validation and test sets
     def score_pairs(pair_list: List[Tuple[str, str, int, str]]) -> Tuple[List[int], List[float], List[float]]:
         y_true, phash_scores, clip_scores = [], [], []
         for path_a, path_b, label, _ in pair_list:
             y_true.append(label)
-            # pHash similarity
             sim_ph = DuplicateService.bitwise_hash_similarity(cache_phash[path_a], cache_phash[path_b])
             phash_scores.append(sim_ph if sim_ph is not None else 0.0)
-            # CLIP similarity
             sim_cl = EmbeddingService.cosine_similarity(cache_clip[path_a], cache_clip[path_b])
             clip_scores.append(sim_cl if sim_cl is not None else 0.0)
         return y_true, phash_scores, clip_scores
@@ -306,6 +406,7 @@ def run_duplicate_evaluation(
     print("  so no superiority claim is made.\n")
 
     results = {
+        "dataset_type": "fixtures",
         "benchmark_label": "synthetic fixtures, augmentation positives",
         "methodology": "50/50 validation/test split; thresholds selected on validation only; evaluated on held-out test with hard negatives.",
         "statistical_interpretation": "pHash threshold 0.58 is near chance agreement (~0.5) and likely reflects visual similarity among synthetic fixtures; CLIP vs pHash confidence intervals overlap, so no superiority claim.",
@@ -346,4 +447,13 @@ def run_duplicate_evaluation(
 
 
 if __name__ == "__main__":
-    run_duplicate_evaluation()
+    parser = argparse.ArgumentParser(description="Run Duplicate Detection Benchmark")
+    parser.add_argument("--dataset", type=str, choices=["fixtures", "real"], default="fixtures", help="Dataset type")
+    parser.add_argument("--labels", type=str, default="data/ood_bengaluru/labels.csv")
+    parser.add_argument("--images", type=str, default="data/ood_bengaluru/images")
+    args = parser.parse_args()
+
+    if args.dataset == "real":
+        run_real_duplicate_evaluation()
+    else:
+        run_duplicate_evaluation(labels_csv=args.labels, images_dir=args.images)

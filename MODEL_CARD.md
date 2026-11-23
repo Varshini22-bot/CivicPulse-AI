@@ -78,18 +78,20 @@ $$\text{Priority} = 0.35 \times S_{\text{sev}} + 0.25 \times S_{\text{safe}} + 0
 
 ## 5. Duplicate Detection & Resolution Verification
 
-### 5.1 Two-Tier Spatial Gating: Pre-Filter vs. Category Matching Radii
-1. **Coarse Spatial Pre-Filter ($\le 50\text{m}$ / Bounding Box)**: Applied in SQL spatial queries to retrieve candidate active neighbor reports within the vicinity, avoiding full-table scans.
-2. **Fine-Grained Per-Category Matching Thresholds**: Each candidate pair passing the 50m pre-filter is evaluated against its category-specific physical duplicate threshold ($15\text{m} - 35\text{m}$ base $+ 10\text{m}$ urban GPS accuracy margin):
-   - *Pothole*: $20\text{m} + 10\text{m} = 30\text{m}$ max
-   - *Road Damage*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Garbage Overflow*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Illegal Dumping*: $35\text{m} + 10\text{m} = 45\text{m}$ max
-   - *Water Leakage*: $30\text{m} + 10\text{m} = 40\text{m}$ max
-   - *Blocked Drain*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Broken Streetlight*: $35\text{m} + 10\text{m} = 45\text{m}$ max
-   - *Damaged Infrastructure*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   A candidate report at 38m passes the 50m spatial pre-filter but is rejected by the 30m pothole threshold. 50m is the coarse database pre-filter, whereas the per-category radius is the authoritative duplicate matching threshold.
+### 5.1 Two-Tier Spatial Gating: Bounding Box Pre-Filter vs. Category Matching Radii
+1. **Coarse SQL Spatial Bounding Box Pre-Filter**: Applied at the database query level ($\Delta \text{lat} = \pm 0.0025^\circ, \Delta \text{lon} = \pm 0.0025^\circ$, ~275 m) to retrieve candidate active neighbor reports within the vicinity, avoiding full-table scans while never prematurely pruning wide-radius categories (such as streetlights or pipe bursts).
+2. **Fine-Grained Per-Category Duplicate Thresholds**: Once candidate records pass the coarse spatial pre-filter, each candidate pair is strictly evaluated against its specific physical category radius ($R_{\text{base}} + 10\text{m}$ urban GPS accuracy margin):
+   - *Pothole*: $25\text{m} + 10\text{m} = \mathbf{35.0\text{m}}$ max
+   - *Road Damage*: $35\text{m} + 10\text{m} = \mathbf{45.0\text{m}}$ max
+   - *Garbage Overflow*: $30\text{m} + 10\text{m} = \mathbf{40.0\text{m}}$ max
+   - *Illegal Dumping*: $40\text{m} + 10\text{m} = \mathbf{50.0\text{m}}$ max
+   - *Water Leakage*: $75\text{m} + 10\text{m} = \mathbf{85.0\text{m}}$ max
+   - *Blocked Drain*: $60\text{m} + 10\text{m} = \mathbf{70.0\text{m}}$ max
+   - *Broken Streetlight*: $80\text{m} + 10\text{m} = \mathbf{90.0\text{m}}$ max
+   - *Damaged Infrastructure*: $40\text{m} + 10\text{m} = \mathbf{50.0\text{m}}$ max
+   - *Default / Uncategorized*: $100\text{m} + 10\text{m} = \mathbf{110.0\text{m}}$ max
+
+A candidate pothole report at 38 m passes the SQL bounding box pre-filter but is **rejected** by the 35 m effective pothole threshold. The bounding box bounds SQL candidate retrieval, whereas the per-category radius ($R_{\text{eff}}$) is the authoritative duplicate matching threshold.
 
 ### 5.2 Multimodal Duplicate Scoring & Statistical Reality
 - **Composite Score**: Combines spatial distance score, category match, time decay ($e^{-\Delta t / 48\text{h}}$), and visual similarity (OpenCLIP ViT-B/32 cosine similarity or bitwise pHash fallback).

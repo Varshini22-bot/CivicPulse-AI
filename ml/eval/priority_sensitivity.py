@@ -36,7 +36,8 @@ from app.services.priority_service import PriorityService
 def run_priority_sensitivity_analysis(
     sample_size: int = 140,
     n_iterations: int = 200,
-    seed: int = 42
+    seed: int = 42,
+    save_results: bool = True
 ) -> Dict[str, Any]:
     """
     Executes Monte Carlo weight perturbation and computes Kendall's tau rank stability.
@@ -156,12 +157,13 @@ def run_priority_sensitivity_analysis(
         )
     }
 
-    out_file = Path("ml/eval/priority_sensitivity_results.json")
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(output_payload, f, indent=2)
+    if save_results:
+        out_file = Path("ml/eval/priority_sensitivity_results.json")
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(output_payload, f, indent=2)
+        print(f"\nDetailed sensitivity report saved to: {out_file}\n")
 
-    print(f"\nDetailed sensitivity report saved to: {out_file}\n")
     return output_payload
 
 

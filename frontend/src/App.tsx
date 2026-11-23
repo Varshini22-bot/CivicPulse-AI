@@ -80,6 +80,14 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors selection:bg-teal-500 selection:text-white">
       <Navbar currentPage={currentPage} onNavigate={handleNavigate} />
+      <div 
+        role="region"
+        aria-label="Synthetic Data Notice"
+        className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 dark:text-amber-200 px-4 py-2 text-xs font-medium text-center flex items-center justify-center gap-2"
+      >
+        <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0" aria-hidden="true" />
+        <span><strong>DEMO / SYNTHETIC DATA</strong>: All 140 seeded municipal records are synthetic fixtures for algorithmic demonstration. Citizen complaints are authoritative and never auto-deleted.</span>
+      </div>
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
         <ErrorBoundary>
           <Suspense fallback={<PageLoader />}>

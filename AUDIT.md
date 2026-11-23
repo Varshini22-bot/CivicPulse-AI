@@ -638,6 +638,34 @@ All deliverables for Phase 8b Consistency have been completed and verified on br
    - Documented the critical limitation that missed non-frontal faces and unredacted vehicle license plates (which are not implemented) remain in the stored and served image rasters.
 5. **Release**: Merged into `main`, tagged `v1.0.3`.
 
+---
+
+## 18. Phase 9: Handover, Release Tooling & Final Verification (`v1.0.4`)
+
+All deliverables for Phase 9 Handover have been completed, verified, and merged on branch `phase-9-handover`.
+
+### 18.1 Key Deliverables Implemented
+1. **Training Readiness & Colab Plumbing**:
+   - Statically validated `scripts/train_road_defect_detector.ipynb` and `ml/notebooks/CivicPulse_Model_Training_Colab.ipynb` for RDD2022 India data, anti-leakage sequence splitting, and ONNX export to `models/rdd2022_yolov8n.onnx`.
+   - Verified 1-epoch CPU smoke run (`ml/train.py --smoke-run`) with max error 0.000092 labeled strictly as pipeline smoke test.
+   - Authored `ml/README_TRAINING.md` with step-by-step instructions for Google Colab GPU training.
+   - Created unified evaluation runner `ml/eval/run_all_evals.py` with dynamic Markdown table formatting.
+2. **Real-Photo Ingestion Tooling**:
+   - Created `data/ood_bengaluru_real/` hierarchy with label and pair templates.
+   - Built `scripts/validate_photo_folder.py` to audit user photographs for quotas ($\ge 12$/category), resolution ($\ge 400\text{px}$), and pHash duplicates.
+   - Updated `evaluate_ood.py` and `evaluate_duplicates.py` with `--dataset real` flags writing to separate `_real.json` outputs.
+   - Published comprehensive field photography guide `docs/PHOTO_GUIDE.md`.
+3. **Consistency & Quality Assurance**:
+   - Created `scripts/sync_constants.py` and automated test `backend/tests/test_doc_consistency.py` validating 140 seeded count, Kendall's $\tau$, F1 values, and physical category radii.
+   - Added persistent top-level demo notice banner across frontend in `App.tsx`.
+   - Generated 6 high-resolution UI screenshots via Playwright automation (`docs/screenshots/`) and embedded them into `README.md`.
+   - Executed `axe-core` accessibility audit, retrofitted form inputs with accessible labels, and documented findings in `LIMITATIONS.md`.
+4. **Portfolio Assets**:
+   - Authored `RESUME_BULLETS.md` containing strictly verified metrics for AI/ML, Data Engineering, and Full-Stack tracks.
+   - Extended `DEMO_SCRIPT.md` with a detailed Shot List and Storyboard for a 2–3 minute video presentation.
+5. **Release**: Merged into `main`, tagged `v1.0.4`. All 76 backend tests passing (+1 skipped PostGIS), 5 frontend vitest tests passing, frontend production build passing in 3.43s.
+
+
 
 
 

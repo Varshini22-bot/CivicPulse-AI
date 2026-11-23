@@ -95,20 +95,33 @@ Image embeddings (512-dimensional L2-normalized float vectors from OpenCLIP ViT-
 
 **Scale-Up Path (`pgvector`)**: For large-scale production deployments ($>10{,}000$ active reports), deserializing JSON embeddings into Python memory becomes a latency and memory bottleneck. Migrating embedding storage to PostgreSQL's native `pgvector` extension with HNSW or IVFFlat vector indexing is the established architectural scale-up path.
 
-### 2.2 Two-Tier Spatial Gating: Pre-Filter vs. Category Matching Radii
-To maintain high database query performance while adhering to physical defect boundaries, duplicate detection operates in two distinct stages:
-1. **Coarse SQL Spatial Pre-Filter ($\le 50\text{m}$ / Bounding Box)**: Applied at the database query level to retrieve candidate active neighbor reports within the vicinity, avoiding full-table scans.
-2. **Fine-Grained Per-Category Duplicate Thresholds**: Once candidate records pass the 50m pre-filter, each pair is strictly evaluated against its specific physical category radius ($15\text{m} - 35\text{m}$ base $+ 10\text{m}$ urban GPS accuracy margin):
-   - *Pothole*: $20\text{m} + 10\text{m} = 30\text{m}$ max
-   - *Road Damage*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Garbage Overflow*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Illegal Dumping*: $35\text{m} + 10\text{m} = 45\text{m}$ max
-   - *Water Leakage*: $30\text{m} + 10\text{m} = 40\text{m}$ max
-   - *Blocked Drain*: $25\text{m} + 10\text{m} = 35\text{m}$ max
-   - *Broken Streetlight*: $35\text{m} + 10\text{m} = 45\text{m}$ max
-   - *Damaged Infrastructure*: $25\text{m} + 10\text{m} = 35\text{m}$ max
+### 2.2 Two-Tier Spatial Gating: Bounding Box Pre-Filter vs. Category Matching Radii
+To maintain high database query performance while adhering to physical defect boundaries, duplicate detection operates in two distinct tiers:
+1. **Coarse SQL Spatial Bounding Box Pre-Filter**: Applied at the database query level ($\Delta \text{lat} = \pm 0.0025^\circ, \Delta \text{lon} = \pm 0.0025^\circ$, ~275 m) to retrieve candidate active neighbor reports within the vicinity, avoiding full-table scans while never prematurely pruning wide-radius categories (such as streetlights or pipe bursts).
+2. **Fine-Grained Per-Category Duplicate Thresholds**: Once candidate records pass the coarse spatial pre-filter, each candidate pair is strictly evaluated against its specific physical category radius ($R_{\text{base}} + 10\text{m}$ urban GPS accuracy margin):
+   - *Pothole*: $25\text{m} + 10\text{m} = \mathbf{35.0\text{m}}$ max
+   - *Road Damage*: $35\text{m} + 10\text{m} = \mathbf{45.0\text{m}}$ max
+   - *Garbage Overflow*: $30\text{m} + 10\text{m} = \mathbf{40.0\text{m}}$ max
+   - *Illegal Dumping*: $40\text{m} + 10\text{m} = \mathbf{50.0\text{m}}$ max
+   - *Water Leakage*: $75\text{m} + 10\text{m} = \mathbf{85.0\text{m}}$ max
+   - *Blocked Drain*: $60\text{m} + 10\text{m} = \mathbf{70.0\text{m}}$ max
+   - *Broken Streetlight*: $80\text{m} + 10\text{m} = \mathbf{90.0\text{m}}$ max
+   - *Damaged Infrastructure*: $40\text{m} + 10\text{m} = \mathbf{50.0\text{m}}$ max
+   - *Default / Uncategorized*: $100\text{m} + 10\text{m} = \mathbf{110.0\text{m}}$ max
 
-A candidate report at 38m passes the 50m database spatial pre-filter but is **rejected** by the 30m pothole matching threshold. 50m is the coarse database pre-filter, whereas the per-category radius is the authoritative duplicate matching threshold.
+A candidate pothole report at 38 m passes the SQL bounding box pre-filter but is **rejected** by the 35 m effective pothole threshold. The bounding box bounds SQL candidate retrieval, whereas the per-category radius ($R_{\text{eff}}$) is the authoritative duplicate matching threshold.
+
+### 2.3 User Interface & Operational Workflows
+
+The platform features a responsive React 19 + Tailwind CSS frontend supporting citizen grievance submission, public tracking, and municipal administrative triage. All views display a persistent amber demo banner communicating synthetic data provenance.
+
+| Desktop Landing & Public Tracking | Citizen Mobile Report (375x812 Viewport) |
+| :---: | :---: |
+| ![Landing Page](docs/screenshots/landing.png) | ![Mobile Report View](docs/screenshots/report_mobile.png) |
+| **Municipal Admin Triage Console** | **GIS Hotspots & Recurrence Clusters** |
+| ![Admin Triage Console](docs/screenshots/admin_triage.png) | ![Map Hotspots](docs/screenshots/map_hotspots.png) |
+| **Issue Detail & Explainable AI Panel** | **System Analytics & Model Performance** |
+| ![Issue Detail AI Panel](docs/screenshots/issue_detail_ai.png) | ![Analytics Dashboard](docs/screenshots/analytics.png) |
 
 ---
 
@@ -123,16 +136,20 @@ Every performance metric cited in CivicPulse AI is produced by reproducible eval
 
 | Metric / Evaluation Target | Value | Reproducible Script | Significance |
 | :--- | :--- | :--- | :--- |
-| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.962$ under $\pm 20\%$ jitter ($N=140$ reports) | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
+| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \in [0.962, 0.989]$ ($N=140$ reports) | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
+| - *$\pm 5\%$ Jitter* | $\tau = 0.989$ (95% CI: [0.982, 0.995]) | `ml/eval/priority_sensitivity.py` | Very high stability |
+| - *$\pm 10\%$ Jitter* | $\tau = 0.980$ (95% CI: [0.970, 0.992]) | `ml/eval/priority_sensitivity.py` | Very high stability |
+| - *$\pm 15\%$ Jitter* | $\tau = 0.972$ (95% CI: [0.952, 0.987]) | `ml/eval/priority_sensitivity.py` | Very high stability |
+| - *$\pm 20\%$ Jitter* | $\tau = 0.962$ (95% CI: [0.934, 0.981]) | `ml/eval/priority_sensitivity.py` | Very high stability |
 | **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 65.5%, Recall: 95.0%, F1: 0.776 (95% CI: [0.622, 0.889]) | `ml/eval/evaluate_duplicates.py` | Labeled *synthetic fixtures, augmentation positives*. Evaluated on held-out test ($N=40$) with hard negatives; $\tau = 0.90$ tuned on val ($N=40$). |
 | **Visual Duplicate Detection (Bitwise pHash)** | Precision: 58.1%, Recall: 90.0%, F1: 0.706 (95% CI: [0.542, 0.830]) | `ml/eval/evaluate_duplicates.py` | Validation threshold $\tau = 0.58$ is near chance (~0.5); CLIP vs pHash CIs overlap, so no superiority claim. |
-| **Spatial Proximity Gate** | $\le 50\text{m}$ Pre-filter; $15\text{m}-35\text{m}$ Category Threshold | `DuplicateService` | Coarse database retrieval pre-filter vs. fine-grained physical matching gate. |
+| **Spatial Proximity Gate** | Bounding box pre-filter (~275m); Category Threshold ($35\text{m}-90\text{m}$) | `DuplicateService` | Coarse database retrieval pre-filter vs. fine-grained physical matching gate. |
 | **Continuous Age Escalation** | $P_{\text{age}} = 100(1 - e^{-\Delta t/72})$ | `PriorityService` | Reaches ~50% at 50h, preventing low-priority ticket starvation (expert-set). |
 | **Overall Backend Statement Coverage** | **79% Statement Coverage (72 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
 | **Frontend Component Test Coverage** | **85.1% Statement Coverage (5 Passed)** | `npm test --prefix frontend` | Vitest + JSDOM testing on critical components. |
 | **Security Audits (`pip-audit`, `npm audit`)** | **0 Known Vulnerabilities** | `docs/SECURITY_AUDIT.md` | OWASP API Security Top 10 compliance verified. |
 
-> **Note on Constants & Parameters**: All priority scoring weights ($w = [0.35, 0.25, 0.15, 0.15, 0.10]$), age half-life (72h), POI location bonuses (+35% hospital, +30% school/transit), duplicate radii (15–35m), and clustering eps (300m) are **expert-set, not learned from data**.
+> **Note on Constants & Parameters**: All priority scoring weights ($w = [0.35, 0.25, 0.15, 0.15, 0.10]$), age half-life (72h), POI location bonuses (+35% hospital, +30% school/transit), duplicate base radii (25–80m base, 35–90m effective), and clustering eps (300m) are **expert-set, not learned from data**.
 
 ### 3.3 The BaseAnalyzer Contract & Honest Abstention
 Every computer vision component implements the standardized `BaseAnalyzer` contract (`backend/app/ml/base.py`).
