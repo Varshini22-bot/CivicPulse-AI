@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ShieldAlert, Camera, MapPin, Cpu, ArrowRight, CheckCircle2,
   AlertTriangle, Droplets, Construction, Lightbulb, Trash2,
-  Activity, Users, Sparkles, Database, Layers
+  Activity, Users, Sparkles, Database, Layers, Search
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -10,15 +10,33 @@ import { api } from '../services/api';
 import { OverviewKPIs } from '../types';
 
 interface LandingPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, params?: any) => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
   const [kpis, setKpis] = useState<OverviewKPIs | null>(null);
+  const [trackingQuery, setTrackingQuery] = useState('');
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getKPIs().then(setKpis).catch(() => {});
   }, []);
+
+  const handleTrackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackingQuery.trim()) return;
+    setTrackingLoading(true);
+    setTrackingError(null);
+    try {
+      const res = await api.trackReportByNumber(trackingQuery.trim());
+      onNavigate('issue-details', { reportId: res.id });
+    } catch (err: any) {
+      setTrackingError(err.message || `No issue found for tracking number '${trackingQuery}'.`);
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
 
   const categories = [
     { name: 'Pothole Detection', icon: <AlertTriangle className="w-5 h-5 text-red-500" />, desc: 'Deep craters, rim fractures, and asphalt degradation.' },
@@ -105,6 +123,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
             >
               Operations Console →
             </Button>
+          </div>
+
+          {/* Citizen Public Issue Tracking Lookup Without Login */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 mt-4 max-w-xl">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 mb-2">
+              <Search className="w-4 h-4 text-teal-400" />
+              <span>Track Complaint Status (No Login Required)</span>
+            </div>
+            <form onSubmit={handleTrackSubmit} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="Enter tracking number (e.g. CP-2026-0001)"
+                value={trackingQuery}
+                onChange={(e) => setTrackingQuery(e.target.value)}
+                aria-label="Tracking number lookup"
+                className="flex-1 px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase"
+              />
+              <Button type="submit" variant="secondary" size="sm" loading={trackingLoading}>
+                Track Status
+              </Button>
+            </form>
+            {trackingError && (
+              <p className="text-[11px] text-red-400 mt-2">{trackingError}</p>
+            )}
           </div>
         </div>
 

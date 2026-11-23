@@ -120,6 +120,7 @@ class Report(Base):
     
     is_duplicate = Column(Boolean, default=False, index=True)
     canonical_report_id = Column(String(36), ForeignKey("reports.id"), nullable=True)
+    upvote_count = Column(Integer, default=1, nullable=False)
     
     is_synthetic = Column(Boolean, default=False, index=True, nullable=False)  # Provenance tracking
     location = Column(Geography(geometry_type='POINT', srid=4326, spatial_index=False).with_variant(Text, 'sqlite'), nullable=True)  # PostGIS Geography

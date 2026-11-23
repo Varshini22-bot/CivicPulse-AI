@@ -62,6 +62,10 @@ export interface ReportItem {
   priority_score: number;
   priority_level: 'Low' | 'Medium' | 'High' | 'Critical';
   is_duplicate: boolean;
+  is_synthetic?: boolean;
+  upvote_count?: number;
+  road_segment_id?: string;
+  resolution_verification_status?: string;
   resolution_notes?: string;
   created_at: string;
   updated_at: string;
@@ -227,3 +231,74 @@ export interface NotificationItem {
   notification_type: string;
   created_at: string;
 }
+
+export interface PreSubmissionDuplicateCandidate {
+  id: string;
+  tracking_number: string;
+  title: string;
+  description: string;
+  category: string;
+  category_code: string;
+  category_match: boolean;
+  distance_meters: number;
+  time_diff_hours: number;
+  image_url?: string;
+  status: string;
+  upvote_count: number;
+}
+
+export interface ResolutionAuditItem {
+  id: string;
+  tracking_number: string;
+  title: string;
+  category: string;
+  category_code: string;
+  area?: string;
+  status: string;
+  image_url?: string;
+  resolution_image_url?: string;
+  resolution_verification_status: string;
+  verification_score?: number;
+  scene_consistency?: number;
+  defect_disappeared: boolean;
+  reasons: string[];
+  resolved_at?: string;
+  updated_at: string;
+}
+
+export interface RecurringCorridor {
+  road_id: string;
+  road_name: string;
+  highway_type: string;
+  ward?: string;
+  incident_count: number;
+  active_incident_count: number;
+  avg_priority_score: number;
+  dominant_category: string;
+  coordinates: [number, number][];
+  root_cause_advisory: string;
+  chronic_status: 'severe' | 'moderate' | 'stable';
+}
+
+export interface DispatchRouteStop {
+  stop_sequence: number;
+  report_id: string;
+  tracking_number: string;
+  title: string;
+  category: string;
+  priority_score: number;
+  priority_level: string;
+  latitude: number;
+  longitude: number;
+  distance_from_prev_km: number;
+  transit_minutes_from_prev: number;
+  status: string;
+}
+
+export interface DispatchRoute {
+  total_stops: number;
+  total_transit_minutes: number;
+  total_transit_km: number;
+  stops: DispatchRouteStop[];
+}
+

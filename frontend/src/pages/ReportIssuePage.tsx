@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Camera, MapPin, Upload, X, AlertTriangle, CheckCircle,
-  Cpu, Navigation, FileText, ArrowRight, ShieldCheck, Sparkles
+  Cpu, Navigation, FileText, ArrowRight, ShieldCheck, Sparkles, ThumbsUp, Info
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
 import { LeafletMap } from '../components/maps/LeafletMap';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { Category, ReportDetail } from '../types';
+import { Category, ReportDetail, PreSubmissionDuplicateCandidate } from '../types';
 
 interface ReportIssuePageProps {
   onNavigate: (page: string, params?: any) => void;
@@ -22,12 +23,22 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
   const [categoryCode, setCategoryCode] = useState('pothole');
   const [latitude, setLatitude] = useState(12.9344);
   const [longitude, setLongitude] = useState(77.6256);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
   const [address, setAddress] = useState('80ft Road, 4th Block, Koramangala');
   const [area, setArea] = useState('Koramangala');
   
   // Image handling
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Pre-submission Duplicate Warning States
+  const [duplicateCandidates, setDuplicateCandidates] = useState<PreSubmissionDuplicateCandidate[]>([]);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [upvoting, setUpvoting] = useState(false);
   
   // Processing Pipeline States
   const [submitting, setSubmitting] = useState(false);
@@ -51,33 +62,46 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
     setImageFile(null);
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const setPresetLocation = (name: string, lat: number, lng: number, landmark: string) => {
     setArea(name);
     setLatitude(lat);
     setLongitude(lng);
+    setGpsAccuracy(null);
     setAddress(landmark);
   };
 
   const handleGetCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLatitude(pos.coords.latitude);
-          setLongitude(pos.coords.longitude);
-          setAddress(`GPS Location (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`);
-          setArea('Bengaluru');
-        },
-        () => {
-          alert('Location permission not granted. Selected default Bengaluru Koramangala sector.');
-        }
-      );
+    if (!navigator.geolocation) {
+      showToast('error', 'Location Error', 'Geolocation is not supported by your browser.');
+      return;
     }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        setLatitude(lat);
+        setLongitude(lng);
+        setGpsAccuracy(acc);
+        setAddress(`GPS Location (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
+        setArea('Bengaluru');
+        showToast('info', 'GPS Acquired', `Coordinates captured with ±${Math.round(acc)}m accuracy.`);
+      },
+      (err) => {
+        setLocating(false);
+        showToast('error', 'Location Failed', err.message || 'Permission denied. Using selected map pin.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeSubmission = async () => {
     setError(null);
     setSubmitting(true);
     setCurrentStep(1); // Report Submitted
@@ -95,7 +119,6 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
     }
 
     try {
-      // Simulate pipeline progression steps for real UX feedback while network finishes
       setTimeout(() => setCurrentStep(2), 300); // Image Analysis
       setTimeout(() => setCurrentStep(3), 700); // Classification & Severity
       setTimeout(() => setCurrentStep(4), 1100); // Duplicate Scan & Priority
@@ -112,6 +135,43 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCheckingDuplicates(true);
+    try {
+      const candidates = await api.checkPresubmissionDuplicates(categoryCode, latitude, longitude);
+      if (candidates && candidates.length > 0) {
+        setDuplicateCandidates(candidates);
+        setShowDuplicateModal(true);
+        setCheckingDuplicates(false);
+        return;
+      }
+    } catch (err) {
+      // Proceed on non-blocking duplicate check error
+    }
+    setCheckingDuplicates(false);
+    executeSubmission();
+  };
+
+  const handleUpvoteAndClose = async (reportId: string) => {
+    setUpvoting(true);
+    try {
+      const res = await api.upvoteReport(reportId);
+      showToast('success', 'Issue Supported!', `You supported existing ticket #${res.tracking_number}. Community priority increased.`);
+      setShowDuplicateModal(false);
+      onNavigate('issue-details', { reportId });
+    } catch (err: any) {
+      showToast('error', 'Upvote Failed', err.message || 'Could not support existing report.');
+    } finally {
+      setUpvoting(false);
+    }
+  };
+
+  const handleReportAnyway = () => {
+    setShowDuplicateModal(false);
+    executeSubmission();
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 space-y-8">
       
@@ -122,6 +182,72 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
           Upload photo evidence and pin the location. The CivicPulse AI engine will analyze damage, evaluate safety risk, and dispatch municipal teams.
         </p>
       </div>
+
+      {/* Pre-Submission Duplicate Warning Modal */}
+      <Modal
+        isOpen={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        title="Similar Issue Reported Nearby"
+        subtitle="To prevent municipal duplicate backlogs, you can support an existing report instead of creating a new one."
+        maxWidth="lg"
+      >
+        <div className="space-y-4 text-left">
+          {duplicateCandidates.length > 0 && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/70 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-amber-900">
+                    A similar issue was reported {duplicateCandidates[0].distance_meters.toFixed(0)}m away {duplicateCandidates[0].time_diff_hours <= 1 ? 'less than an hour ago' : `${duplicateCandidates[0].time_diff_hours.toFixed(0)} hours ago`}
+                  </h4>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Ticket <strong>#{duplicateCandidates[0].tracking_number}</strong>: "{duplicateCandidates[0].title}"
+                  </p>
+                </div>
+              </div>
+
+              {duplicateCandidates[0].image_url && (
+                <div className="rounded-lg overflow-hidden border border-amber-200 h-36 bg-slate-100">
+                  <img
+                    src={duplicateCandidates[0].image_url}
+                    alt="Nearby reported issue"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
+              <div className="text-xs text-slate-600 space-y-1 bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
+                <div><strong>Category:</strong> {duplicateCandidates[0].category}</div>
+                <div><strong>Current Status:</strong> {duplicateCandidates[0].status}</div>
+                <div><strong>Citizen Upvotes:</strong> {duplicateCandidates[0].upvote_count} supporter(s)</div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-3 border-t border-slate-200">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleReportAnyway}
+              disabled={upvoting}
+            >
+              Report Anyway (Different Defect)
+            </Button>
+
+            {duplicateCandidates.length > 0 && (
+              <Button
+                type="button"
+                variant="primary"
+                loading={upvoting}
+                onClick={() => handleUpvoteAndClose(duplicateCandidates[0].id)}
+                icon={<ThumbsUp className="w-4 h-4" />}
+              >
+                View & Upvote Existing Report
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       {/* Multi-Stage AI Pipeline Processing Overlay Modal */}
       {submitting && (
@@ -197,8 +323,9 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
           <CardContent className="space-y-4">
             
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">Issue Title *</label>
+              <label htmlFor="report-title-input" className="text-xs font-semibold text-slate-700">Issue Title *</label>
               <input
+                id="report-title-input"
                 type="text"
                 required
                 minLength={5}
@@ -211,8 +338,12 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Civic Category *</label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="report-category-select" className="text-xs font-semibold text-slate-700">Civic Category *</label>
+                  <span className="text-[10px] text-teal-700 font-medium">Citizen Choice Authoritative</span>
+                </div>
                 <select
+                  id="report-category-select"
                   value={categoryCode}
                   onChange={(e) => setCategoryCode(e.target.value)}
                   className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-hidden bg-white"
@@ -223,11 +354,16 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
+                  <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                  Your chosen category is authoritative. Municipal AI offers suggestions but will not change your selection without your consent.
+                </p>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Ward / Neighborhood Area *</label>
+                <label htmlFor="report-area-input" className="text-xs font-semibold text-slate-700">Ward / Neighborhood Area *</label>
                 <input
+                  id="report-area-input"
                   type="text"
                   required
                   value={area}
@@ -239,8 +375,9 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">Detailed Description *</label>
+              <label htmlFor="report-description-input" className="text-xs font-semibold text-slate-700">Detailed Description *</label>
               <textarea
+                id="report-description-input"
                 required
                 minLength={10}
                 rows={3}
@@ -264,6 +401,7 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
                 <button
                   type="button"
                   onClick={removeImage}
+                  aria-label="Remove uploaded image"
                   className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition-colors shadow-md"
                 >
                   <X className="w-4 h-4" />
@@ -274,19 +412,50 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
                 </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-8 hover:border-teal-500 hover:bg-slate-50/50 cursor-pointer transition-all">
-                <div className="p-3 rounded-full bg-teal-50 text-teal-600 mb-3">
-                  <Upload className="w-6 h-6" />
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center space-y-4 hover:border-teal-500 transition-colors">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-teal-50 text-teal-700 font-medium text-xs hover:bg-teal-100 transition-colors border border-teal-200"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Take Photo (Camera)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 text-slate-700 font-medium text-xs hover:bg-slate-200 transition-colors border border-slate-300"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Browse Files</span>
+                  </button>
                 </div>
-                <span className="text-sm font-semibold text-slate-700">Upload Defect Photograph</span>
-                <span className="text-xs text-slate-400 mt-1">Computer vision will automatically extract edges, contrast, and dark depth ratios</span>
+
+                <p className="text-xs text-slate-400">
+                  Automated computer vision will detect defects and calculate bounding boxes. EXIF metadata is sanitized for privacy.
+                </p>
+
+                {/* Hidden file and camera inputs */}
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/jpg"
                   onChange={handleImageChange}
                   className="hidden"
+                  aria-label="Browse image files"
                 />
-              </label>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageChange}
+                  className="hidden"
+                  aria-label="Capture photo using camera"
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -295,12 +464,13 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
         <Card>
           <CardHeader
             title="3. Geospatial Location Picker"
-            subtitle="Click on the interactive map or select a quick landmark to pin precise coordinates"
+            subtitle="Click on the map or drag the pin to set exact coordinates. Geolocation calculates accuracy circle."
             action={
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                loading={locating}
                 onClick={handleGetCurrentLocation}
                 icon={<Navigation className="w-3.5 h-3.5 text-teal-600" />}
               >
@@ -354,21 +524,31 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
             <LeafletMap
               interactivePicker={true}
               selectedLocation={[latitude, longitude]}
+              gpsAccuracyMeters={gpsAccuracy}
               center={[latitude, longitude]}
               zoom={13}
               onLocationSelect={(lat, lng) => {
                 setLatitude(lat);
                 setLongitude(lng);
+                setGpsAccuracy(null); // Manual adjustment clears GPS circle
                 setAddress(`Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)})`);
               }}
               height="300px"
             />
 
+            {gpsAccuracy && (
+              <div className="flex items-center gap-2 text-xs text-teal-800 bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg">
+                <Navigation className="w-3.5 h-3.5 text-teal-600" />
+                <span>GPS Accuracy: <strong>±{Math.round(gpsAccuracy)} meters</strong>. You can drag the map pin to refine location.</span>
+              </div>
+            )}
+
             {/* Selected Coordinates & Address */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-600">Latitude</label>
+                <label htmlFor="report-latitude-input" className="text-[11px] font-semibold text-slate-600">Latitude</label>
                 <input
+                  id="report-latitude-input"
                   type="number"
                   step="any"
                   required
@@ -378,8 +558,9 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-600">Longitude</label>
+                <label htmlFor="report-longitude-input" className="text-[11px] font-semibold text-slate-600">Longitude</label>
                 <input
+                  id="report-longitude-input"
                   type="number"
                   step="any"
                   required
@@ -389,8 +570,9 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-600">Physical Address / Landmark</label>
+                <label htmlFor="report-address-input" className="text-[11px] font-semibold text-slate-600">Physical Address / Landmark</label>
                 <input
+                  id="report-address-input"
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -416,7 +598,7 @@ export const ReportIssuePage: React.FC<ReportIssuePageProps> = ({ onNavigate }) 
             type="submit"
             variant="secondary"
             size="lg"
-            loading={submitting}
+            loading={submitting || checkingDuplicates}
             icon={<ShieldCheck className="w-5 h-5" />}
           >
             Submit Report & Run AI Triage

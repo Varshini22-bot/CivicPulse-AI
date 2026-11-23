@@ -1,19 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapMarker, Hotspot } from '../../types';
+import { MapMarker, Hotspot, RecurringCorridor } from '../../types';
 
 interface LeafletMapProps {
   markers?: MapMarker[];
   hotspots?: Hotspot[];
+  corridors?: RecurringCorridor[];
   center?: [number, number];
   zoom?: number;
   interactivePicker?: boolean;
   onLocationSelect?: (lat: number, lng: number) => void;
   selectedLocation?: [number, number] | null;
+  gpsAccuracyMeters?: number | null;
   selectedReportId?: string;
   onMarkerClick?: (reportId: string) => void;
   showHotspots?: boolean;
+  showCorridors?: boolean;
   className?: string;
   height?: string;
 }
@@ -21,14 +24,17 @@ interface LeafletMapProps {
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   markers = [],
   hotspots = [],
+  corridors = [],
   center = [12.9716, 77.5946], // Bengaluru center
   zoom = 12,
   interactivePicker = false,
   onLocationSelect,
   selectedLocation,
+  gpsAccuracyMeters = null,
   selectedReportId,
   onMarkerClick,
   showHotspots = false,
+  showCorridors = false,
   className = '',
   height = '500px',
 }) => {
@@ -36,7 +42,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const hotspotsLayerRef = useRef<L.LayerGroup | null>(null);
+  const corridorsLayerRef = useRef<L.LayerGroup | null>(null);
   const pickerMarkerRef = useRef<L.Marker | null>(null);
+  const accuracyCircleRef = useRef<L.Circle | null>(null);
 
   // Initialize Map
   useEffect(() => {
@@ -58,6 +66,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       markersLayerRef.current = L.layerGroup().addTo(map);
       hotspotsLayerRef.current = L.layerGroup().addTo(map);
+      corridorsLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
 
       // Handle map clicks in interactive picker mode
@@ -124,7 +133,28 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       pickerMarkerRef.current.remove();
       pickerMarkerRef.current = null;
     }
-  }, [selectedLocation, interactivePicker]);
+
+    // Handle GPS Accuracy Circle
+    if (selectedLocation && gpsAccuracyMeters && gpsAccuracyMeters > 0) {
+      const [lat, lng] = selectedLocation;
+      if (!accuracyCircleRef.current) {
+        accuracyCircleRef.current = L.circle([lat, lng], {
+          radius: gpsAccuracyMeters,
+          color: '#0d9488',
+          fillColor: '#0d9488',
+          fillOpacity: 0.15,
+          weight: 1.5,
+          dashArray: '4, 4',
+        }).addTo(mapInstanceRef.current);
+      } else {
+        accuracyCircleRef.current.setLatLng([lat, lng]);
+        accuracyCircleRef.current.setRadius(gpsAccuracyMeters);
+      }
+    } else if (accuracyCircleRef.current) {
+      accuracyCircleRef.current.remove();
+      accuracyCircleRef.current = null;
+    }
+  }, [selectedLocation, interactivePicker, gpsAccuracyMeters]);
 
   // Render Issue Markers
   useEffect(() => {
@@ -244,6 +274,45 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       });
     }
   }, [hotspots, showHotspots]);
+
+  // Render Chronic Failure Corridors (OpenStreetMap Road Recurrence)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !corridorsLayerRef.current) return;
+
+    corridorsLayerRef.current.clearLayers();
+
+    if (showCorridors && corridors.length > 0) {
+      corridors.forEach((c) => {
+        // Convert GeoJSON [lon, lat] coordinates to Leaflet [lat, lon]
+        const latLngs = c.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]);
+        const isSevere = c.chronic_status === 'severe';
+        const color = isSevere ? '#dc2626' : '#d97706';
+
+        const polyline = L.polyline(latLngs, {
+          color,
+          weight: 5,
+          opacity: 0.85,
+        });
+
+        polyline.bindPopup(`
+          <div style="font-size: 13px; max-width: 280px; padding: 2px;">
+            <div style="font-weight: 700; color: ${color}; margin-bottom: 4px;">
+              ⚠️ Chronic Corridor: ${c.road_name}
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-bottom: 6px;">
+              <strong>${c.incident_count} reports</strong> (${c.active_incident_count} active) • Ward: ${c.ward || 'Bengaluru'}
+            </div>
+            <div style="background: #f8fafc; border-left: 3px solid ${color}; padding: 6px; border-radius: 4px; font-size: 11px; color: #1e293b; line-height: 1.35;">
+              <strong>Root Cause Advisory:</strong><br/>
+              ${c.root_cause_advisory}
+            </div>
+          </div>
+        `);
+
+        polyline.addTo(corridorsLayerRef.current!);
+      });
+    }
+  }, [corridors, showCorridors]);
 
   return (
     <div className={`relative rounded-xl overflow-hidden shadow-inner border border-slate-200 ${className}`} style={{ height }}>

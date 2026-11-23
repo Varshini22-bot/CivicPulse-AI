@@ -189,6 +189,77 @@ export const IssueDetailsPage: React.FC<IssueDetailsPageProps> = ({ reportId, on
         )}
       </div>
 
+      {/* Status Progression Timeline with Human Verification Note */}
+      <Card className="bg-slate-900 text-white border-slate-800">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 border-b border-slate-800">
+            <div>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400">Public Status Progression</span>
+              <h3 className="text-sm font-bold text-white mt-0.5">
+                Current Stage: <span className="text-teal-300">{report.status}</span>
+              </h3>
+            </div>
+            <div className="text-xs text-slate-400">
+              Tracking Code: <span className="font-mono text-white font-semibold">#{report.tracking_number}</span>
+            </div>
+          </div>
+
+          {/* Stage Milestones */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4">
+            {[
+              { stage: 'Submitted', label: '1. Received', desc: 'Logged & queued' },
+              { stage: 'Under Review', label: '2. Under Review', desc: 'Desk assessment' },
+              { stage: 'Verified', label: '3. Verified', desc: 'AI / Supervisor approved' },
+              { stage: 'In Progress', label: '4. Dispatched', desc: report.assigned_department || 'Field team assigned' },
+              { stage: 'Resolved', label: '5. Resolved', desc: report.resolved_at ? 'Work verified' : 'Remediation pending' },
+            ].map((step, idx) => {
+              const statuses = ['Submitted', 'Under Review', 'Verified', 'In Progress', 'Resolved'];
+              const currentIdx = statuses.indexOf(report.status);
+              const stepIdx = statuses.indexOf(step.stage);
+              const isDone = currentIdx >= stepIdx;
+              const isCurrent = report.status === step.stage;
+
+              return (
+                <div key={step.stage} className={`p-2.5 rounded-lg border text-xs transition-colors ${
+                  isCurrent ? 'bg-teal-950/80 border-teal-500 text-teal-200' :
+                  isDone ? 'bg-slate-800/80 border-slate-700 text-slate-300' :
+                  'bg-slate-900/60 border-slate-800 text-slate-500'
+                }`}>
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      isDone ? 'bg-teal-500 text-slate-950' : 'bg-slate-800 text-slate-500'
+                    }`}>
+                      {isDone ? '✓' : idx + 1}
+                    </span>
+                    <span>{step.label}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 truncate">{step.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Human Verification & Department Note */}
+          <div className="mt-4 p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-300 flex items-start gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-white">Municipal Engineering Status: </span>
+              <span>
+                {report.status === 'Resolved' ? (
+                  `Remediation completed by ${report.assigned_department || 'Municipal response crew'}. Photographic evidence verified.`
+                ) : report.status === 'In Progress' ? (
+                  `Active field work order assigned to ${report.assigned_department || 'BBMP Ward Engineer'}. Remediation in progress.`
+                ) : report.status === 'Verified' ? (
+                  `Issue verified by ${report.assigned_department || 'Ward 150 municipal engineering desk'}. Scheduled for work order dispatch.`
+                ) : (
+                  `Under review by BBMP Ward ${report.area || '150'} engineering staff. Priority score: ${report.priority_score}/100.`
+                )}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Main Grid: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

@@ -1,7 +1,8 @@
 import {
   AuthResponse, User, Category, ReportItem, ReportDetail,
   MapMarker, Hotspot, OverviewKPIs, ChartData, AIMetrics,
-  Department, DuplicateCandidate, NotificationItem
+  Department, DuplicateCandidate, NotificationItem,
+  PreSubmissionDuplicateCandidate, ResolutionAuditItem, RecurringCorridor, DispatchRoute
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -118,6 +119,23 @@ class ApiService {
     });
   }
 
+  async trackReportByNumber(trackingNumber: string): Promise<ReportDetail> {
+    return this.request<ReportDetail>(`/reports/track/${encodeURIComponent(trackingNumber)}`);
+  }
+
+  async checkPresubmissionDuplicates(categoryCode: string, latitude: number, longitude: number): Promise<PreSubmissionDuplicateCandidate[]> {
+    return this.request<PreSubmissionDuplicateCandidate[]>('/reports/check-duplicate', {
+      method: 'POST',
+      body: JSON.stringify({ category_code: categoryCode, latitude, longitude }),
+    });
+  }
+
+  async upvoteReport(reportId: string): Promise<ReportDetail> {
+    return this.request<ReportDetail>(`/reports/${reportId}/upvote`, {
+      method: 'POST',
+    });
+  }
+
   // --- Admin Operations ---
   async getAdminReports(params: {
     status?: string;
@@ -164,6 +182,31 @@ class ApiService {
     return this.request<Department[]>('/admin/departments');
   }
 
+  async executeBulkAction(payload: {
+    report_ids: string[];
+    action: 'change_status' | 'assign_department' | 'mark_duplicate';
+    status?: string;
+    department_id?: string;
+    canonical_report_id?: string;
+    notes?: string;
+  }): Promise<{ status: string; action: string; affected_count: number }> {
+    return this.request('/admin/reports/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getResolutionAuditQueue(): Promise<ResolutionAuditItem[]> {
+    return this.request<ResolutionAuditItem[]>('/admin/resolution-audit');
+  }
+
+  async auditResolutionDecision(reportId: string, decision: 'confirm' | 'reject_reopen', notes?: string): Promise<ReportDetail> {
+    return this.request<ReportDetail>(`/admin/reports/${reportId}/audit-resolution`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, notes }),
+    });
+  }
+
   // --- Duplicates ---
   async getDuplicateCandidates(): Promise<any[]> {
     return this.request<any[]>('/admin/duplicates');
@@ -187,6 +230,22 @@ class ApiService {
 
   async getHotspots(eps_meters: number = 800, min_samples: number = 3): Promise<Hotspot[]> {
     return this.request<Hotspot[]>(`/map/hotspots?eps_meters=${eps_meters}&min_samples=${min_samples}`);
+  }
+
+  async getHotspotsV2(cluster_method: 'hdbscan' | 'dbscan' = 'hdbscan', half_life_days: number = 14, min_samples: number = 3): Promise<Hotspot[]> {
+    return this.request<Hotspot[]>(`/map/hotspots-v2?cluster_method=${cluster_method}&half_life_days=${half_life_days}&min_samples=${min_samples}`);
+  }
+
+  async getRecurringCorridors(): Promise<RecurringCorridor[]> {
+    return this.request<RecurringCorridor[]>('/map/recurring-corridors');
+  }
+
+  async getDispatchRoute(params: { start_lat?: number; start_lon?: number; max_stops?: number; ward?: string } = {}): Promise<DispatchRoute> {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+    });
+    return this.request<DispatchRoute>(`/map/dispatch-route?${query.toString()}`);
   }
 
   async getNearbyReports(latitude: number, longitude: number, radius_meters: number = 1000): Promise<any[]> {

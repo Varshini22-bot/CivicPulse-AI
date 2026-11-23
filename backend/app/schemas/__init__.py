@@ -147,6 +147,8 @@ class ReportListItemOut(BaseModel):
     priority_level: str
     is_duplicate: bool
     is_synthetic: bool = False
+    upvote_count: int = 1
+    resolution_verification_status: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     resolved_at: Optional[datetime] = None
@@ -159,6 +161,8 @@ class ReportDetailOut(ReportListItemOut):
     duplicate_candidates: List[DuplicateCandidateOut] = []
     audit_history: List[AuditLogOut] = []
     resolution_notes: Optional[str] = None
+    resolution_verification_details: Optional[Dict[str, Any]] = None
+    location_risk_poi_details: Optional[Any] = None
 
 # --- Action Payloads ---
 class StatusUpdateRequest(BaseModel):

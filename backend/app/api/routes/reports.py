@@ -10,7 +10,15 @@ from app.database.connection import get_db
 from app.models import Report, Category, User, Notification
 from app.schemas import CategoryOut, ReportListItemOut, ReportDetailOut
 from app.services.report_service import ReportService
+from app.services.duplicate_service import DuplicateService
+from app.services.priority_service import PriorityService
 from app.api.deps import get_current_user, get_optional_current_user
+from pydantic import BaseModel
+
+class DuplicateCheckRequest(BaseModel):
+    category_code: str
+    latitude: float
+    longitude: float
 from app.core.config import settings
 from app.core.limiter import limiter
 
@@ -47,6 +55,8 @@ def serialize_report_item(r: Report) -> dict:
         "priority_level": r.priority_level,
         "is_duplicate": r.is_duplicate,
         "is_synthetic": getattr(r, "is_synthetic", False),
+        "upvote_count": getattr(r, "upvote_count", 1) or 1,
+        "resolution_verification_status": r.resolution_verification_status,
         "created_at": r.created_at,
         "updated_at": r.updated_at,
         "resolved_at": r.resolved_at,
@@ -303,3 +313,79 @@ def withdraw_report(
         notes="Report withdrawn by citizen."
     )
     return serialize_report_detail(updated)
+
+@router.get("/track/{tracking_number}", response_model=ReportDetailOut)
+def track_report_by_number(
+    tracking_number: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Public issue status tracking lookup by tracking number without login.
+    Returns status progression, timeline, and human-in-the-loop municipal verification notes.
+    """
+    clean_num = tracking_number.strip().upper()
+    report = db.query(Report).filter(Report.tracking_number == clean_num).first()
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No civic report found with tracking number '{tracking_number}'. Please check the format (e.g. CP-2026-0001)."
+        )
+    return serialize_report_detail(report)
+
+@router.post("/check-duplicate")
+def check_presubmission_duplicate(
+    req: DuplicateCheckRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Pre-submission duplicate query.
+    Scans active nearby reports within category radius + GPS margin.
+    """
+    return DuplicateService.find_presubmission_duplicates(
+        db=db,
+        latitude=req.latitude,
+        longitude=req.longitude,
+        category_code=req.category_code
+    )
+
+@router.post("/{report_id}/upvote", response_model=ReportDetailOut)
+def upvote_report(
+    report_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Support/upvote an existing report instead of creating a duplicate.
+    Increments upvote_count and recalculates priority with heightened community impact.
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    report.upvote_count = (getattr(report, "upvote_count", 1) or 1) + 1
+
+    # Recalculate priority
+    prio_res = PriorityService.calculate_priority(
+        severity_score=report.human_severity or report.ai_severity or 5,
+        category_safety_weight=report.category.safety_weight if report.category else 0.5,
+        location_text=f"{report.address or ''} {report.area or ''}".strip(),
+        supporting_reports_count=report.upvote_count,
+        created_at=report.created_at,
+        description=report.description,
+        latitude=report.latitude,
+        longitude=report.longitude
+    )
+
+    report.priority_score = prio_res["final_score"]
+    report.priority_level = prio_res["priority_level"]
+
+    if report.priority_record:
+        pr = report.priority_record
+        pr.community_impact_component = prio_res["community_impact_component"]
+        pr.final_score = prio_res["final_score"]
+        pr.priority_level = prio_res["priority_level"]
+        pr.explanation_json = {"reasons": prio_res["reasons"]}
+
+    db.commit()
+    db.refresh(report)
+    return serialize_report_detail(report)
+

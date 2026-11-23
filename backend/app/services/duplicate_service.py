@@ -255,3 +255,55 @@ class DuplicateService:
                 db.rollback()
             
         return created_records
+
+    @classmethod
+    def find_presubmission_duplicates(
+        cls,
+        db: Session,
+        latitude: float,
+        longitude: float,
+        category_code: str,
+        limit: int = 3
+    ) -> List[Dict[str, Any]]:
+        """
+        Pre-submission duplicate scanner for citizen reporting flow.
+        Queries active reports within category radius + GPS margin and returns candidate matches.
+        """
+        effective_radius = cls.get_effective_radius(category_code, include_gps_margin=True)
+        # 1 deg lat ~ 111km -> 1m ~ 0.000009 deg
+        delta_deg = max(0.001, (effective_radius * 2.0) / 111000.0)
+
+        candidates = db.query(Report).filter(
+            Report.status.notin_(["Rejected"]),
+            Report.latitude.between(latitude - delta_deg, latitude + delta_deg),
+            Report.longitude.between(longitude - delta_deg, longitude + delta_deg)
+        ).all()
+
+        results = []
+        now = datetime.now(timezone.utc)
+        for cand in candidates:
+            dist = cls.haversine_distance(latitude, longitude, cand.latitude, cand.longitude)
+            if dist <= effective_radius:
+                created_utc = cand.created_at.replace(tzinfo=timezone.utc) if cand.created_at and cand.created_at.tzinfo is None else cand.created_at
+                time_diff_hours = (now - created_utc).total_seconds() / 3600.0 if created_utc else 0.0
+                cand_code = cand.category.code if cand.category else ""
+                is_cat = (cand_code == category_code)
+                results.append({
+                    "id": cand.id,
+                    "tracking_number": cand.tracking_number,
+                    "title": cand.title,
+                    "description": cand.description,
+                    "category": cand.category.name if cand.category else "Other",
+                    "category_code": cand_code,
+                    "category_match": is_cat,
+                    "distance_meters": round(dist, 1),
+                    "time_diff_hours": round(max(0.0, time_diff_hours), 1),
+                    "image_url": cand.image_url,
+                    "status": cand.status,
+                    "upvote_count": getattr(cand, "upvote_count", 1) or 1
+                })
+
+        # Sort by distance
+        results.sort(key=lambda x: x["distance_meters"])
+        return results[:limit]
+
