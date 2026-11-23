@@ -67,13 +67,13 @@
       "iterations": 50,
       "warmups": 10,
       "unit": "milliseconds",
-      "mean_ms": 25.46,
-      "std_ms": 3.87,
-      "p50_median_ms": 25.85,
-      "p95_ms": 31.08,
-      "p99_ms": 34.28,
-      "min_ms": 18.97,
-      "max_ms": 35.14
+      "mean_ms": 17.46,
+      "std_ms": 2.95,
+      "p50_median_ms": 16.44,
+      "p95_ms": 22.31,
+      "p99_ms": 23.86,
+      "min_ms": 12.97,
+      "max_ms": 24.6
     },
     "RoadDefectDetector (Fallback)": {
       "iterations": 50,
@@ -85,19 +85,19 @@
       "p95_ms": 0.0,
       "p99_ms": 0.0,
       "min_ms": 0.0,
-      "max_ms": 0.0
+      "max_ms": 0.01
     },
     "ZeroShotAnalyzer (OpenCLIP ViT-B/32)": {
       "iterations": 50,
       "warmups": 10,
       "unit": "milliseconds",
-      "mean_ms": 812.01,
-      "std_ms": 54.12,
-      "p50_median_ms": 802.73,
-      "p95_ms": 930.76,
-      "p99_ms": 965.24,
-      "min_ms": 734.94,
-      "max_ms": 968.4
+      "mean_ms": 816.4,
+      "std_ms": 109.84,
+      "p50_median_ms": 770.78,
+      "p95_ms": 943.37,
+      "p99_ms": 1211.14,
+      "min_ms": 687.06,
+      "max_ms": 1332.97
     }
   }
 }

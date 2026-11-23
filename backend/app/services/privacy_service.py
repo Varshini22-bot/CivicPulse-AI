@@ -12,9 +12,14 @@ except Exception:
 
 class PrivacyService:
     """
-    Automated Privacy Protection & PII Redaction Service.
-    Applies best-effort Gaussian blurring to detected human faces and vehicle license plates
-    on citizen photo uploads prior to long-term storage or public ledger rendering.
+    Best-Effort Privacy Protection & PII Redaction Service.
+    Applies best-effort Gaussian blurring to detected human faces and single-line vehicle license plates
+    on citizen photo uploads prior to storage.
+    
+    LIMITATION NOTICE:
+    Standard Haar cascades are trained on frontal human faces and single-line European/Russian plates.
+    Indian-style vehicle plates (e.g. two-line motorcycle plates, yellow commercial boards) and oblique
+    camera angles are NOT covered by these default weights and require domain-specific detectors.
     """
 
     _face_cascade = None

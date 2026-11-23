@@ -164,6 +164,31 @@ class ReportDetailOut(ReportListItemOut):
     resolution_verification_details: Optional[Dict[str, Any]] = None
     location_risk_poi_details: Optional[Any] = None
 
+class PublicReportTrackOut(BaseModel):
+    id: str
+    tracking_number: str
+    title: str
+    description: str
+    category: str
+    category_code: str
+    area: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    address: Optional[str] = None
+    status: str
+    image_url: Optional[str] = None
+    resolution_image_url: Optional[str] = None
+    priority_level: str
+    is_synthetic: bool = False
+    upvote_count: int = 1
+    resolution_verification_status: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    resolved_at: Optional[datetime] = None
+    assigned_department: Optional[str] = None
+    audit_history: List[AuditLogOut] = []
+    resolution_notes: Optional[str] = None
+
 # --- Action Payloads ---
 class StatusUpdateRequest(BaseModel):
     status: str

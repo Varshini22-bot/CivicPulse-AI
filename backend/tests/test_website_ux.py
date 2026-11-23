@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.main import app
 from app.models import User, Report, Category, Department
 from app.core.security import create_access_token
+from app.services.report_service import ReportService
 
 
 @pytest.fixture
@@ -41,9 +43,40 @@ def test_public_tracking_without_login(test_client: TestClient, db_session: Sess
     assert data["status"] == "Under Review"
     assert "audit_history" in data
 
+    # Verify privacy redaction on public endpoint
+    assert data["latitude"] is None
+    assert data["longitude"] is None
+    assert data["address"] is None
+    assert "citizen_id" not in data
+
     # Negative test: Non-existent tracking number
     resp_404 = test_client.get("/api/reports/track/CP-INVALID-99999")
     assert resp_404.status_code == 404
+
+
+def test_public_tracking_code_high_entropy_and_unguessable(db_session: Session):
+    """Generated tracking codes must be cryptographically unguessable (>40 bits entropy)."""
+    codes = set()
+    for _ in range(50):
+        code = ReportService.generate_tracking_number(db_session)
+        assert code.startswith(f"CP-{datetime.now().year}-")
+        suffix = code.split("-")[-1]
+        assert len(suffix) >= 8
+        # Ensure unambiguous character set
+        for ch in suffix:
+            assert ch in "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        codes.add(code)
+    # Zero collisions among 50 generated samples
+    assert len(codes) == 50
+
+
+def test_public_tracking_rate_limiting(test_client: TestClient):
+    """Public tracking endpoint must enforce rate limiting (SlowAPI 20/minute)."""
+    # Send 25 consecutive rapid requests
+    responses = [test_client.get("/api/reports/track/CP-RATE-LIMIT-TEST") for _ in range(25)]
+    status_codes = [r.status_code for r in responses]
+    # At least one request beyond the limit must receive 429 Too Many Requests
+    assert 429 in status_codes
 
 
 def test_presubmission_duplicate_scanner(test_client: TestClient, db_session: Session):

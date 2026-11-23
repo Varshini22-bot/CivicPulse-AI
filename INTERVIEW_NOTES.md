@@ -38,7 +38,7 @@ This guide is designed for technical portfolio walkthroughs, system design discu
 ## 2. Geospatial Intelligence & Operations Research
 
 ### 2.1 PostGIS vs. SQLite Dual Compatibility
-- **Production Pipeline**: PostgreSQL 16 with PostGIS extension. Uses `Geography(POINT, 4326)` columns indexed with spatial Generalized Search Trees (`GiST`), executing `ST_DWithin` queries for millimeter-accurate ellipsoidal spatial filtering.
+- **Deployment Topology**: PostgreSQL 16 with PostGIS extension. Uses `Geography(POINT, 4326)` columns indexed with spatial Generalized Search Trees (`GiST`), executing `ST_DWithin` queries for millimeter-accurate ellipsoidal spatial filtering.
 - **Development Fallback**: SQLite with custom registered Python math functions for trigonometric Haversine distance, ensuring tests and local development run without external database daemons.
 
 ### 2.2 Spatial Clustering: HDBSCAN & DBSCAN

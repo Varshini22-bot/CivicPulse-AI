@@ -7,7 +7,7 @@
 [![React 19](https://img.shields.io/badge/react-19-61dafb.svg)](https://react.dev/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)
 [![PostGIS](https://img.shields.io/badge/PostGIS-16--3.4-336791.svg)](https://postgis.net/)
-[![Tests Passing](https://img.shields.io/badge/tests-70%2F70%20passing-brightgreen.svg)](https://github.com/civicpulse/civicpulse-ai)
+[![Tests Passing](https://img.shields.io/badge/tests-71%2F72%20passing-brightgreen.svg)](https://github.com/civicpulse/civicpulse-ai)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ---
@@ -21,6 +21,17 @@ Rapidly expanding metropolitan regions face severe infrastructure monitoring cha
 - **Unverified Repairs**: Contractors can mark tickets resolved without empirical before-and-after photographic verification.
 
 **CivicPulse AI** solves these challenges through an open, transparent, and explainable decision-support platform connecting citizens with municipal authorities.
+
+---
+
+## ⚠️ What This Project Does NOT Claim
+
+To maintain scientific integrity and realistic operational expectations, this repository explicitly states:
+1. **No Validated Accuracy on Real Citizen Photos**: The vision pipeline operates as an uncalibrated zero-shot prototype (OpenCLIP ViT-B/32) alongside classical texture heuristics; it has **not** been benchmarked or certified on a large-scale, field-collected dataset of real citizen grievance photos.
+2. **No Real Municipal Data**: All seeded complaints, citizen user records, and departmental assignments are synthetic demo fixtures generated for prototype demonstration.
+3. **Advisory & Decision-Support Only**: Automated AI classifications, severity ratings, and duplicate detections are non-binding advisory suggestions designed to assist municipal engineers; the platform does not make autonomous administrative, legal, or contractor payment decisions.
+4. **No Physical Metric Measurements**: The platform does **not** claim to measure physical pothole depth in centimeters or compute cubic volumetric repair estimates from single, uncalibrated 2D smartphone photographs.
+5. **Best-Effort PII Redaction**: Face and license plate blurring uses OpenCV Haar cascades on a best-effort demonstration basis; it does not guarantee complete anonymization across non-standard, angled, or two-line regional Indian registration plates.
 
 ---
 
@@ -92,12 +103,16 @@ Every performance metric cited in CivicPulse AI is produced by reproducible eval
 
 | Metric / Evaluation Target | Value | Reproducible Script | Significance |
 | :--- | :--- | :--- | :--- |
-| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.955$ under $\pm 20\%$ jitter | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight perturbations. |
-| **Visual Scene Background Consistency** | $\ge 55\%$ OpenCLIP Cosine Similarity | `ResolutionVerificationService` | Audits before-and-after photo pairs for municipal ticket resolution. |
-| **Spatial Proximity Gate** | $\le 50\text{m}$ Great-Circle Distance | `DuplicateService` | Enforces category-specific spatial clustering. |
-| **Continuous Age Escalation** | $P_{\text{age}} = 100(1 - e^{-\Delta t/72})$ | `PriorityService` | Reaches ~50% at 50h, preventing low-priority ticket starvation. |
-| **Backend Test Suite Coverage** | **70 Tests (69 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
+| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.955$ under $\pm 20\%$ jitter | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
+| **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 81.6%, Recall: 100%, F1: 0.899 | `ml/eval/evaluate_duplicates.py` | Optimistic synthetic evaluation on $N=80$ augmentation-derived pairs; Python dot product. |
+| **Visual Duplicate Detection (Bitwise pHash)** | Precision: 70.0%, Recall: 35.0%, F1: 0.467 | `ml/eval/evaluate_duplicates.py` | Lightweight texture hash baseline ($<30\text{ms}$ comparison). |
+| **Spatial Proximity Gate** | $\le 50\text{m}$ Great-Circle Distance | `DuplicateService` | Category-specific spatial threshold (expert-set, not learned). |
+| **Continuous Age Escalation** | $P_{\text{age}} = 100(1 - e^{-\Delta t/72})$ | `PriorityService` | Reaches ~50% at 50h, preventing low-priority ticket starvation (expert-set). |
+| **Overall Backend Statement Coverage** | **79% Statement Coverage (71 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
+| **Frontend Component Test Coverage** | **85.1% Statement Coverage (5 Passed)** | `npm test --prefix frontend` | Vitest + JSDOM testing on critical components. |
 | **Security Audits (`pip-audit`, `npm audit`)** | **0 Known Vulnerabilities** | `docs/SECURITY_AUDIT.md` | OWASP API Security Top 10 compliance verified. |
+
+> **Note on Constants & Parameters**: All priority scoring weights ($w = [0.35, 0.25, 0.15, 0.15, 0.10]$), age half-life (72h), POI location bonuses (+35% hospital, +30% school/transit), duplicate radii (15–35m), and clustering eps (300m) are **expert-set, not learned from data**.
 
 ### 3.3 The BaseAnalyzer Contract & Honest Abstention
 Every computer vision component implements the standardized `BaseAnalyzer` contract (`backend/app/ml/base.py`). When specialized detector weights are absent or visual confidence is below threshold ($< 40\%$), the analyzer emits `status="abstain"` rather than making unverified guesses, transparently falling back to calibrated zero-shot and heuristic models.

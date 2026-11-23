@@ -23,7 +23,7 @@
         0.605
       ]
     },
-    "mean_latency_ms": 26.76
+    "mean_latency_ms": 28.92
   },
   "method_openclip_embeddings": {
     "threshold": 0.82,
@@ -44,6 +44,6 @@
         0.959
       ]
     },
-    "mean_latency_ms": 414.9
+    "mean_latency_ms": 370.22
   }
 }

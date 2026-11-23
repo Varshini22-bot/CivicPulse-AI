@@ -8,7 +8,7 @@ from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.models import Report, Category, User, Notification
-from app.schemas import CategoryOut, ReportListItemOut, ReportDetailOut
+from app.schemas import CategoryOut, ReportListItemOut, ReportDetailOut, PublicReportTrackOut
 from app.services.report_service import ReportService
 from app.services.duplicate_service import DuplicateService
 from app.services.priority_service import PriorityService
@@ -314,14 +314,67 @@ def withdraw_report(
     )
     return serialize_report_detail(updated)
 
-@router.get("/track/{tracking_number}", response_model=ReportDetailOut)
+def serialize_public_report_track(r: Report) -> dict:
+    """
+    Public tracking serializer:
+    Explicitly redacts exact coordinates (latitude/longitude), exact street address,
+    and returns zero citizen personal data to protect reporter privacy.
+    """
+    audits = []
+    for a in r.audit_logs:
+        audits.append({
+            "id": a.id,
+            "action": a.action,
+            "user_name": a.user_name or "Municipal Engineer",
+            "notes": a.notes,
+            "previous_state": a.previous_state,
+            "new_state": a.new_state,
+            "created_at": a.created_at
+        })
+
+    dept_name = None
+    if r.assignments:
+        active_assignment = next((a for a in r.assignments if a.status == "Active"), None)
+        if active_assignment and active_assignment.department:
+            dept_name = active_assignment.department.name
+
+    return {
+        "id": r.id,
+        "tracking_number": r.tracking_number,
+        "title": r.title,
+        "description": r.description,
+        "category": r.category.name if r.category else "Other",
+        "category_code": r.category.code if r.category else "other",
+        "area": r.area,
+        "latitude": None,
+        "longitude": None,
+        "address": None,
+        "status": r.status,
+        "image_url": r.image_url,
+        "resolution_image_url": r.resolution_image_url,
+        "priority_level": r.priority_level,
+        "is_synthetic": r.is_synthetic,
+        "upvote_count": getattr(r, "upvote_count", 1) or 1,
+        "resolution_verification_status": r.resolution_verification_status,
+        "created_at": r.created_at,
+        "updated_at": r.updated_at,
+        "resolved_at": r.resolved_at,
+        "assigned_department": dept_name,
+        "audit_history": audits,
+        "resolution_notes": r.resolution_notes
+    }
+
+@router.get("/track/{tracking_number}", response_model=PublicReportTrackOut)
+@limiter.limit("20/minute")
 def track_report_by_number(
+    request: Request,
     tracking_number: str,
     db: Session = Depends(get_db)
 ):
     """
     Public issue status tracking lookup by tracking number without login.
     Returns status progression, timeline, and human-in-the-loop municipal verification notes.
+    Rate-limited to 20 requests/minute and strictly redacts exact location and personal data.
     """
     clean_num = tracking_number.strip().upper()
     report = db.query(Report).filter(Report.tracking_number == clean_num).first()
@@ -330,7 +383,7 @@ def track_report_by_number(
             status_code=404,
             detail=f"No civic report found with tracking number '{tracking_number}'. Please check the format (e.g. CP-2026-0001)."
         )
-    return serialize_report_detail(report)
+    return serialize_public_report_track(report)
 
 @router.post("/check-duplicate")
 def check_presubmission_duplicate(

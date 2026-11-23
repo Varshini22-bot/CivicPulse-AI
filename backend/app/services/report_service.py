@@ -33,10 +33,19 @@ class ReportService:
 
     @classmethod
     def generate_tracking_number(cls, db: Session) -> str:
-        """Generate unique human-readable tracking number like CP-2026-0142."""
-        count = db.query(Report).count()
+        """
+        Generate unguessable high-entropy tracking identifier like CP-2026-K7M9P2X4.
+        Uses secrets.choice with unambiguous base32 character set (32^8 = 1.099 x 10^12 combinations, >40 bits entropy).
+        """
+        import secrets
+        alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
         year = datetime.now().year
-        return f"CP-{year}-{count + 1:04d}"
+        for _ in range(10):
+            suffix = "".join(secrets.choice(alphabet) for _ in range(8))
+            code = f"CP-{year}-{suffix}"
+            if not db.query(Report).filter(Report.tracking_number == code).first():
+                return code
+        return f"CP-{year}-{uuid.uuid4().hex[:8].upper()}"
 
     @classmethod
     def create_report(

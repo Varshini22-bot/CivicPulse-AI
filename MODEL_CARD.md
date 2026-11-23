@@ -81,6 +81,8 @@ $$\text{Priority} = 0.35 \times P_{\text{severity}} + 0.25 \times P_{\text{safet
   - $\pm 15\%$ Jitter: $\tau = 0.969$ (95% CI: [0.942, 0.989])
   - $\pm 20\%$ Jitter: $\tau = 0.955$ (95% CI: [0.917, 0.983])
 
+> **Important Limitation**: This sensitivity analysis demonstrates **ranking stability under weight perturbations**, but does **NOT** prove the *correctness* of the priority ordering relative to ground-truth municipal dispatch urgency. All scoring weights ($w = [0.35, 0.25, 0.15, 0.15, 0.10]$) and POI bonuses are **expert-set heuristics, not learned from data**.
+
 ---
 
 ## 5. Duplicate Detection & Resolution Verification
@@ -98,11 +100,12 @@ $$\text{Priority} = 0.35 \times P_{\text{severity}} + 0.25 \times P_{\text{safet
 
 ---
 
-## 6. Privacy Protection & PII Redaction
+## 6. Best-Effort Privacy Protection & PII Redaction
 
 - **Mechanism**: OpenCV Haar Cascades (`haarcascade_frontalface_default.xml` and `haarcascade_russian_plate_number.xml`).
-- **Processing**: Automatically applies Gaussian blur ($31 \times 31$ for faces, $25 \times 25$ for license plates) to citizen photo uploads before storage.
+- **Processing**: Automatically applies Gaussian blur ($31 \times 31$ for faces, $25 \times 25$ for license plates) to citizen photo uploads before storage on a best-effort basis.
 - **EXIF Sanitization**: Strips GPS coordinates and device serials while preserving physical image orientation via `ImageOps.exif_transpose`.
+- **Limitation Notice**: Standard OpenCV cascades do NOT detect Indian-style vehicle registration plates (e.g. two-line motorcycle plates, yellow-board commercial plates) or non-frontal human faces. The feature is strictly best-effort.
 
 ---
 
