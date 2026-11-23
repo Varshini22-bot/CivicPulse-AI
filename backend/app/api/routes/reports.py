@@ -13,12 +13,12 @@ from app.services.report_service import ReportService
 from app.services.duplicate_service import DuplicateService
 from app.services.priority_service import PriorityService
 from app.api.deps import get_current_user, get_optional_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class DuplicateCheckRequest(BaseModel):
     category_code: str
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
 from app.core.config import settings
 from app.core.limiter import limiter
 
@@ -172,8 +172,8 @@ async def submit_report(
     title: str = Form(..., min_length=5, max_length=255),
     description: str = Form(..., min_length=10),
     category_code: str = Form(...),
-    latitude: float = Form(...),
-    longitude: float = Form(...),
+    latitude: float = Form(..., ge=-90.0, le=90.0),
+    longitude: float = Form(..., ge=-180.0, le=180.0),
     address: Optional[str] = Form(None),
     area: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),

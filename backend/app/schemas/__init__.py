@@ -121,8 +121,8 @@ class ReportCreate(BaseModel):
     title: str = Field(..., min_length=5, max_length=255)
     description: str = Field(..., min_length=10)
     category_code: str
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
     address: Optional[str] = None
     area: Optional[str] = None
 

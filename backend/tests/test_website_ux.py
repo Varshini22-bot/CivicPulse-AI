@@ -48,12 +48,13 @@ def test_public_tracking_without_login(test_client: TestClient, db_session: Sess
 
 def test_presubmission_duplicate_scanner(test_client: TestClient, db_session: Session):
     """Pre-submission spatial query identifies nearby reports within category radius."""
+    import random
     cat = db_session.query(Category).filter(Category.code == "pothole").first()
     if not cat:
         cat = db_session.query(Category).first()
 
-    unique_lat = 12.81234
-    unique_lon = 77.51234
+    unique_lat = round(12.70000 + random.uniform(0.01, 0.09), 5)
+    unique_lon = round(77.40000 + random.uniform(0.01, 0.09), 5)
     report = Report(
         tracking_number=f"CP-NEAR-{uuid.uuid4().hex[:6].upper()}",
         title="Nearby Road Pothole",
