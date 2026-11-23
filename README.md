@@ -282,6 +282,7 @@ To train customized road defect detection models using public datasets:
 
 ## 📄 9. Documentation Index
 
+- [User Handover & Operations Guide (`HANDOVER.md`)](HANDOVER.md)
 - [System Limitations & Operational Boundaries (`LIMITATIONS.md`)](LIMITATIONS.md)
 - [Comprehensive Code & AI Audit (`AUDIT.md`)](AUDIT.md)
 - [Machine Learning Model Card (`MODEL_CARD.md`)](MODEL_CARD.md)

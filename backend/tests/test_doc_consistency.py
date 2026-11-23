@@ -95,3 +95,33 @@ def test_system_constants_radii_consistency():
     assert (radii["pothole"] + margin) == 35.0
     assert (radii["broken_streetlight"] + margin) == 90.0
     assert (radii["water_leakage"] + margin) == 85.0
+
+
+def test_doc_markdown_links():
+    """Verify that every internal markdown link across core docs resolves to an existing file."""
+    doc_files = ["README.md", "MODEL_CARD.md", "DATA_CARD.md", "LIMITATIONS.md", "EVIDENCE.md", "HANDOVER.md"]
+    link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+
+    broken_links = []
+    for doc_name in doc_files:
+        doc_path = REPO_ROOT / doc_name
+        assert doc_path.exists(), f"Core documentation file {doc_name} is missing"
+        content = doc_path.read_text(encoding="utf-8")
+
+        for match in link_pattern.finditer(content):
+            target = match.group(2).strip()
+            # Ignore external protocols and intra-page fragment anchors
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+
+            # Strip target anchors if present (e.g., path/to/file#section)
+            clean_target = target.split("#")[0]
+            if not clean_target:
+                continue
+
+            resolved_path = (doc_path.parent / clean_target).resolve()
+            if not resolved_path.exists():
+                broken_links.append((doc_name, target, str(resolved_path)))
+
+    assert len(broken_links) == 0, f"Found broken internal markdown links in docs: {broken_links}"
+
