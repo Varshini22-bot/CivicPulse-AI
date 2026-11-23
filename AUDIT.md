@@ -4,7 +4,7 @@
 **Auditor Role**: Senior AI/ML Engineer & Systems Code Reviewer  
 **Repository**: CivicPulse AI (FastAPI + React 19/TypeScript + PostgreSQL/PostGIS / SQLite + Docker)  
 **Target Candidate**: B.E. Artificial Intelligence & Data Science Student Portfolio Project  
-**Status**: **ALL PHASES (0 THROUGH 7) COMPLETE — PROTOTYPE / PORTFOLIO RELEASE READY (`v1.0.1`)**
+**Status**: **ALL PHASES (0 THROUGH 8) COMPLETE — RELEASE READY (`v1.0.2`)**
 
 ---
 
@@ -578,6 +578,39 @@ All deliverables for Phase 7 have been completed, verified, and committed on git
 7. **Consolidated "Needs User Action" List**:
    - Fully documented in `PHASE_7_REPORT.md` and `README.md` (Colab training notebook, real citizen photo collection, production Redis rate limiting).
 8. **Final Release**: Merged into `main`, tagged `v1.0`.
+
+---
+
+## 16. Phase 8: Hardening, Evaluation Rigor & Operational Limits (`v1.0.2`)
+
+All deliverables for Phase 8 Hardening have been completed, verified, and committed on git branch `phase-8-hardening`.
+
+### 16.1 Key Deliverables Implemented
+1. **PII Redaction Hardening (`backend/app/services/privacy_service.py`)**:
+   - Bundled OpenCV's frontal face Haar cascade (`haarcascade_frontalface_default.xml`, BSD-3-Clause) directly in the repository at `backend/app/ml/cascades/haarcascade_frontalface_default.xml`, accompanied by `LICENSE.txt`.
+   - Updated `PrivacyService` to load the cascade from the repository path rather than relying on `cv2.data.haarcascades` (which was missing in `opencv-python-headless`).
+   - Pinned `opencv-python-headless>=4.8.0,<5.0.0` in `backend/requirements.txt` to avoid OpenCV 5 breaking changes.
+   - Completely removed all license plate detection code, variables, and documentation claims; explicitly documented across the codebase and documentation that vehicle license plate redaction is **not implemented**.
+   - Added automated test `test_privacy_face_detection_and_redaction` in `backend/tests/test_resolution_verification.py` verifying face detection and blurring on a synthetic face pattern.
+2. **Duplicate Evaluation Rigor (`ml/eval/evaluate_duplicates.py`)**:
+   - Enhanced benchmark dataset with 20 hard negative pairs (same category, within 200m spatial proximity, different physical defect images) alongside 20 easy negatives (different categories) and 40 positive augmentation pairs ($N=80$ total).
+   - Enforced a stratified 50/50 validation/held-out test split.
+   - Optimal F1 thresholds were tuned exclusively on the validation set ($\tau = 0.58$ for pHash, $\tau = 0.90$ for OpenCLIP).
+   - Evaluated on the held-out test set with 95% bootstrap confidence intervals ($B=1000$):
+     - Bitwise pHash: Precision 58.1% (95% CI: [40.6%, 74.2%]), Recall 90.0% (95% CI: [75.0%, 100.0%]), F1: 0.706 (95% CI: [0.542, 0.830]).
+     - OpenCLIP ViT-B/32: Precision 65.5% (95% CI: [48.0%, 81.5%]), Recall 95.0% (95% CI: [84.2%, 100.0%]), F1: 0.776 (95% CI: [0.622, 0.889]).
+   - Labeled benchmark explicitly: `"synthetic fixtures, augmentation positives"`.
+3. **CI/CD Docker Lifecycle Testing (`.github/workflows/ci.yml`)**:
+   - Added `docker-compose-test` job in GitHub Actions workflow executing `docker compose config`, `docker compose build`, `docker compose up -d`, polling the `/api/reports/categories` health endpoint until healthy, executing `python -m app.database.seed_data` inside the container, verifying running containers via `docker compose ps`, and tearing down via `docker compose down -v`.
+   - Added container healthcheck to `backend` service in `docker-compose.yml`.
+4. **README Hardening (`README.md`)**:
+   - Documented image embedding storage as JSON arrays in database + in-memory cosine similarity via NumPy after spatial pre-filtering ($\le 50\text{m}$).
+   - Listed PostgreSQL `pgvector` extension as the recommended scale-up path for $>10{,}000$ active reports.
+   - Marked `RoadDefectDetector` explicitly as "not trained; abstains" until weights exist.
+   - Removed all vehicle license plate claims and updated duplicate benchmark tables with held-out test metrics.
+5. **Operational Limitations Document (`LIMITATIONS.md`)**:
+   - Authored comprehensive standalone document covering synthetic fixtures, OpenCLIP image-only OOD accuracy (10.0%), redaction scope (faces only, plates not implemented), lack of live municipal agency integration, expert-set constants, and lack of single-image metric depth.
+6. **Release**: Merged into `main`, tagged `v1.0.2`.
 
 
 

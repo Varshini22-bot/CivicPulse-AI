@@ -9,7 +9,7 @@
   2. `PriorityService` (v2): 5-factor calibrated priority scoring with continuous saturating age escalation and OpenStreetMap POI location risk.
   3. `DuplicateService` (v2): Multimodal duplicate detection combining spatial gating, OpenCLIP ViT-B/32 cosine similarity, bitwise pHash, and exponential time decay.
   4. `ResolutionVerificationService`: Automated before-and-after photo audit for municipal ticket closure verification.
-  5. `PrivacyService`: Automated OpenCV Haar Cascade PII redaction for faces and license plates.
+  5. `PrivacyService`: Best-effort OpenCV Haar Cascade PII face blurring using bundled model (plate redaction not implemented).
 - **Model Versions**:
   - `heuristic_analyzer` (`v1.0.0`)
   - `road_defect_detector` (`rdd2022-yolov8n-onnx-v1`)
@@ -102,10 +102,10 @@ $$\text{Priority} = 0.35 \times P_{\text{severity}} + 0.25 \times P_{\text{safet
 
 ## 6. Best-Effort Privacy Protection & PII Redaction
 
-- **Mechanism**: OpenCV Haar Cascades (`haarcascade_frontalface_default.xml` and `haarcascade_russian_plate_number.xml`).
-- **Processing**: Automatically applies Gaussian blur ($31 \times 31$ for faces, $25 \times 25$ for license plates) to citizen photo uploads before storage on a best-effort basis.
+- **Face Redaction Mechanism**: Bundled OpenCV Haar Cascade (`backend/app/ml/cascades/haarcascade_frontalface_default.xml`, licensed under BSD-3-Clause, Intel Corp / OpenCV Foundation).
+- **Processing**: Automatically applies Gaussian blur to detected frontal human faces on citizen photo uploads before storage on a best-effort basis.
 - **EXIF Sanitization**: Strips GPS coordinates and device serials while preserving physical image orientation via `ImageOps.exif_transpose`.
-- **Limitation Notice**: Standard OpenCV cascades do NOT detect Indian-style vehicle registration plates (e.g. two-line motorcycle plates, yellow-board commercial plates) or non-frontal human faces. The feature is strictly best-effort.
+- **License Plate Redaction**: **NOT IMPLEMENTED**. Standard OpenCV cascades only provide models for single-line Russian GOST plates, which completely fail on Indian vehicle registration plates (two-line motorcycle plates, yellow commercial boards, HSRP plates, oblique angles). Vehicle license plate redaction is therefore explicitly omitted and not claimed.
 
 ---
 

@@ -120,3 +120,47 @@ def test_privacy_anonymization():
         assert "faces_detected" in res
         assert "plates_detected" in res
         assert os.path.exists(test_path)
+
+
+def test_privacy_face_detection_and_redaction():
+    """
+    Verifies that PrivacyService correctly loads the bundled OpenCV Haar cascade
+    (haarcascade_frontalface_default.xml, BSD-3-Clause) and detects + blurs
+    a synthetic human face pattern while documenting that plate redaction is not implemented.
+    """
+    import cv2
+    import numpy as np
+
+    # Verify cascade file exists at bundled repo path
+    cascade = PrivacyService._get_face_cascade()
+    assert cascade is not None
+    assert not cascade.empty()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_path = os.path.join(tmpdir, "synthetic_face.png")
+
+        # Create a synthetic face drawing fixture
+        img = np.ones((300, 300, 3), dtype=np.uint8) * 220
+        cv2.ellipse(img, (150, 150), (80, 100), 0, 0, 360, (180, 180, 180), -1)  # Head oval
+        cv2.ellipse(img, (120, 130), (15, 8), 0, 0, 360, (40, 40, 40), -1)        # Left eye
+        cv2.ellipse(img, (180, 130), (15, 8), 0, 0, 360, (40, 40, 40), -1)        # Right eye
+        cv2.line(img, (105, 115), (135, 118), (30, 30, 30), 4)                    # Left eyebrow
+        cv2.line(img, (195, 115), (165, 118), (30, 30, 30), 4)                    # Right eyebrow
+        cv2.line(img, (150, 130), (150, 170), (120, 120, 120), 4)                 # Nose bridge
+        cv2.line(img, (140, 170), (160, 170), (80, 80, 80), 3)                    # Nose base
+        cv2.ellipse(img, (150, 205), (30, 10), 0, 0, 360, (50, 50, 50), -1)      # Mouth
+        cv2.line(img, (130, 205), (170, 205), (20, 20, 20), 2)                    # Lip line
+
+        cv2.imwrite(test_path, img)
+        original_bytes = os.path.getsize(test_path)
+
+        res = PrivacyService.anonymize_image(test_path)
+
+        # Assert face detected and anonymized
+        assert res["anonymized"] is True
+        assert res["faces_detected"] >= 1
+        # Explicit check: license plate redaction is NOT implemented
+        assert res["plates_detected"] == 0
+        assert res["plate_redaction_implemented"] is False
+        assert "Plate redaction not implemented" in res["note"]
+        assert os.path.exists(res["saved_path"])

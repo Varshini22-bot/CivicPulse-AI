@@ -35,6 +35,12 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/reports/categories || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   frontend:
     build:

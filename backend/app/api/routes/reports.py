@@ -239,7 +239,7 @@ async def submit_report(
             save_format = "JPEG" if ext in [".jpg", ".jpeg"] else ("PNG" if ext == ".png" else "WEBP")
             clean_img.save(target_path, format=save_format)
 
-            # Apply best-effort face & license plate privacy blurring
+            # Apply best-effort face privacy blurring (license plate redaction not implemented)
             try:
                 from app.services.privacy_service import PrivacyService
                 PrivacyService.anonymize_image(target_path)

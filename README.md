@@ -31,7 +31,7 @@ To maintain scientific integrity and realistic operational expectations, this re
 2. **No Real Municipal Data**: All seeded complaints, citizen user records, and departmental assignments are synthetic demo fixtures generated for prototype demonstration.
 3. **Advisory & Decision-Support Only**: Automated AI classifications, severity ratings, and duplicate detections are non-binding advisory suggestions designed to assist municipal engineers; the platform does not make autonomous administrative, legal, or contractor payment decisions.
 4. **No Physical Metric Measurements**: The platform does **not** claim to measure physical pothole depth in centimeters or compute cubic volumetric repair estimates from single, uncalibrated 2D smartphone photographs.
-5. **Best-Effort PII Redaction**: Face and license plate blurring uses OpenCV Haar cascades on a best-effort demonstration basis; it does not guarantee complete anonymization across non-standard, angled, or two-line regional Indian registration plates.
+5. **Best-Effort PII Redaction**: Face blurring uses the bundled OpenCV Haar cascade on a best-effort demonstration basis; license plate redaction is **not implemented** (standard cascades fail completely on Indian registration plates). See [`LIMITATIONS.md`](LIMITATIONS.md).
 
 ---
 
@@ -57,7 +57,7 @@ flowchart TD
     subgraph BackendAPI["FastAPI High-Throughput REST Engine (Python 3.11)"]
         RateLimiter["SlowAPI Rate Limiter"]
         AuthRBAC["Negative RBAC Middleware"]
-        PrivacyEngine["OpenCV Haar Cascade Face/Plate Redaction"]
+        PrivacyEngine["OpenCV Haar Cascade Face Blurring (Plates Not Implemented)"]
         ExifSanitizer["EXIF GPS Purge & Orientation Transpose"]
     end
 
@@ -71,7 +71,7 @@ flowchart TD
     subgraph MLEngine["Multi-Model Explainable Vision Pipeline"]
         HeuristicModel["HeuristicAnalyzer (Sobel, HSV, Dark Pixel)"]
         ZeroShotModel["ZeroShotAnalyzer (OpenCLIP ViT-B/32)"]
-        DetectorModel["RoadDefectDetector (ONNX Abstention Contract)"]
+        DetectorModel["RoadDefectDetector (Not trained; abstains)"]
         PriorityV2["Priority v2 Engine (OSM POI Risk & Saturating Age)"]
         ResolutionVerifier["Resolution Verification Engine (CLIP Cosine + GPS)"]
     end
@@ -90,6 +90,11 @@ flowchart TD
     MLEngine --> Persistence
 ```
 
+### 2.1 Embedding Storage & Scale-Up Path
+Image embeddings (512-dimensional L2-normalized float vectors from OpenCLIP ViT-B/32) are serialized as raw JSON strings in the SQL database column `Report.embedding_json`. During duplicate checks and resolution audits, candidate reports within a spatial gate ($\le 50\text{m}$) are filtered via SQL spatial queries (PostGIS `ST_DWithin` / SQLite Haversine), and cosine similarity is computed in-memory in Python via NumPy dot products.
+
+**Scale-Up Path (`pgvector`)**: For large-scale production deployments ($>10{,}000$ active reports), deserializing JSON embeddings into Python memory becomes a latency and memory bottleneck. Migrating embedding storage to PostgreSQL's native `pgvector` extension with HNSW or IVFFlat vector indexing is the established architectural scale-up path.
+
 ---
 
 ## 🔬 3. Transparent AI & Machine Learning Engineering
@@ -104,8 +109,8 @@ Every performance metric cited in CivicPulse AI is produced by reproducible eval
 | Metric / Evaluation Target | Value | Reproducible Script | Significance |
 | :--- | :--- | :--- | :--- |
 | **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.955$ under $\pm 20\%$ jitter | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
-| **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 81.6%, Recall: 100%, F1: 0.899 | `ml/eval/evaluate_duplicates.py` | Optimistic synthetic evaluation on $N=80$ augmentation-derived pairs; Python dot product. |
-| **Visual Duplicate Detection (Bitwise pHash)** | Precision: 70.0%, Recall: 35.0%, F1: 0.467 | `ml/eval/evaluate_duplicates.py` | Lightweight texture hash baseline ($<30\text{ms}$ comparison). |
+| **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 65.5%, Recall: 95.0%, F1: 0.776 | `ml/eval/evaluate_duplicates.py` | Labeled *synthetic fixtures, augmentation positives*. Evaluated on held-out test ($N=40$) with hard negatives; $\tau = 0.90$ tuned on val ($N=40$). |
+| **Visual Duplicate Detection (Bitwise pHash)** | Precision: 58.1%, Recall: 90.0%, F1: 0.706 | `ml/eval/evaluate_duplicates.py` | Fast texture hash baseline ($<30\text{ms}$ comparison); $\tau = 0.58$ tuned on val ($N=40$). |
 | **Spatial Proximity Gate** | $\le 50\text{m}$ Great-Circle Distance | `DuplicateService` | Category-specific spatial threshold (expert-set, not learned). |
 | **Continuous Age Escalation** | $P_{\text{age}} = 100(1 - e^{-\Delta t/72})$ | `PriorityService` | Reaches ~50% at 50h, preventing low-priority ticket starvation (expert-set). |
 | **Overall Backend Statement Coverage** | **79% Statement Coverage (71 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
@@ -115,7 +120,11 @@ Every performance metric cited in CivicPulse AI is produced by reproducible eval
 > **Note on Constants & Parameters**: All priority scoring weights ($w = [0.35, 0.25, 0.15, 0.15, 0.10]$), age half-life (72h), POI location bonuses (+35% hospital, +30% school/transit), duplicate radii (15–35m), and clustering eps (300m) are **expert-set, not learned from data**.
 
 ### 3.3 The BaseAnalyzer Contract & Honest Abstention
-Every computer vision component implements the standardized `BaseAnalyzer` contract (`backend/app/ml/base.py`). When specialized detector weights are absent or visual confidence is below threshold ($< 40\%$), the analyzer emits `status="abstain"` rather than making unverified guesses, transparently falling back to calibrated zero-shot and heuristic models.
+Every computer vision component implements the standardized `BaseAnalyzer` contract (`backend/app/ml/base.py`).
+
+- **RoadDefectDetector**: Currently **not trained; abstains** until fine-tuned defect detection weights (`models/rdd2022_yolov8n.onnx`) are mounted. It emits `status="abstain"` on all citizen images, ensuring zero ungrounded detections.
+- **ZeroShotAnalyzer**: Serves as a prototype zero-shot foundation model baseline using OpenCLIP ViT-B/32 prompt alignment, alongside classical texture heuristics (`HeuristicAnalyzer`). When visual confidence is below threshold ($< 35\%$), the analyzer abstains.
+- **No Claims of Automated AI Defect Detection**: The system does **not** claim to provide an active, production-grade object detector for civic defects. A Colab training notebook is provided in `scripts/train_road_defect_detector.ipynb` for users wanting to train YOLOv8 on datasets like RDD2022 India.
 
 ### 3.4 Physical Metric Limitations
 Estimating physical metric depth (e.g. pothole depth in centimeters) from an unconstrained 2D smartphone photo is an ill-posed inverse problem without camera intrinsic calibration or ground-plane fiducials. CivicPulse AI explicitly disclaims metric depth estimation, analyzing relative bounding box pixel coverage and dark-pixel variance instead.
@@ -231,7 +240,7 @@ To train customized road defect detection models using public datasets:
 
 ## ⚖️ 8. Ethics, Privacy & Data Provenance
 
-- **Data Privacy**: All citizen uploads undergo automated PII redaction (Gaussian blurring on faces and vehicle license plates) and complete EXIF/GPS metadata stripping.
+- **Data Privacy**: All citizen uploads undergo automated best-effort frontal face blurring via bundled OpenCV cascade (`haarcascade_frontalface_default.xml`, BSD-3-Clause). Vehicle license plate redaction is explicitly **not implemented**. All EXIF GPS coordinates and camera device serials are stripped prior to storage.
 - **Data Provenance**: All seeded records are tagged with `is_synthetic=True`. The user interface displays a permanent demonstration disclaimer banner.
 - **OpenStreetMap Data**: Road geometries and POIs are used under the **Open Database License (ODbL)**.
 - **Human Governance**: Automated AI models produce explainable suggestions to support municipal officers; citizen input is authoritative and original complaints are never automatically deleted or merged.
@@ -240,6 +249,7 @@ To train customized road defect detection models using public datasets:
 
 ## 📄 9. Documentation Index
 
+- [System Limitations & Operational Boundaries (`LIMITATIONS.md`)](LIMITATIONS.md)
 - [Comprehensive Code & AI Audit (`AUDIT.md`)](AUDIT.md)
 - [Machine Learning Model Card (`MODEL_CARD.md`)](MODEL_CARD.md)
 - [Dataset Provenance Card (`DATA_CARD.md`)](DATA_CARD.md)

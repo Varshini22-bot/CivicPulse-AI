@@ -13,9 +13,9 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **CV Classification** | Multi-model zero-shot categorization & abstention | `python ml/eval/evaluate_ood.py` | Heuristic: 0.0% (100% abstain); Detector: 0.0% (100% abstain); CLIP: 10.0% (0% abstain) | **VERIFIED** (Fixture Smoke Test) |
 | **Inference Latency** | End-to-end CPU wall-clock latency per 640x480 image | `python ml/eval/abstention_analysis.py` | Heuristic p50: 16.44 ms (p95: 22.31 ms); CLIP p50: 770.78 ms (p95: 943.37 ms) | **VERIFIED** |
-| **Duplicate Benchmark** | Bitwise pHash vs. OpenCLIP semantic similarity | `python ml/eval/evaluate_duplicates.py` | pHash F1: 0.467; OpenCLIP F1: 0.899 (computed in Python on $N=80$ augmentation pairs) | **PARTIAL** (Optimistic synthetic evaluation) |
+| **Duplicate Benchmark** | Bitwise pHash vs. OpenCLIP semantic similarity | `python ml/eval/evaluate_duplicates.py` | pHash Test F1: 0.706; OpenCLIP Test F1: 0.776 on held-out test ($N=40$) with hard negatives | **VERIFIED** (Synthetic fixtures, augmentation positives) |
 | **Priority Sensitivity** | Monte Carlo rank stability under $\pm 20\%$ weight jitter | `python ml/eval/priority_sensitivity.py` | Kendall's $\tau = 0.955$ (95% CI: [0.917, 0.983]) across $M=200$ trials | **VERIFIED** (Shows stability, not correctness) |
-| **PII Redaction** | Face and vehicle license plate blurring | `PrivacyService.anonymize_image` | Cascades missing in `opencv-python-headless`; Indian plates uncovered | **UNSUPPORTED $\to$ FIXED** (Renamed to Best-Effort) |
+| **PII Redaction** | Frontal face blurring; license plates not implemented | `PrivacyService.anonymize_image` | Bundled OpenCV Haar cascade loaded from repo; plates explicitly not implemented | **VERIFIED** (Faces Bundled; Plates Not Implemented) |
 | **Public Tracking** | Unguessable, rate-limited, privacy-redacted tracking | `pytest backend/tests/test_website_ux.py` | 8-char base32 ($>40$ bits entropy), 20/min limit, lat/lon/address redacted | **VERIFIED** |
 | **Test Coverage** | Full repository automated test coverage | `pytest --cov=backend/app` & `npm test -- --coverage` | Backend: 79% overall (71 passed, 1 skipped); Frontend: 85.1% statements | **VERIFIED** |
 | **Integration & CI** | PostGIS service in CI; Playwright / Axe tests | `.github/workflows/ci.yml` | PostGIS container active in CI; Playwright/Axe **DO NOT EXIST** | **PARTIAL** (Explicitly disclosed) |
@@ -80,65 +80,62 @@
 ### 2.2 Duplicate Detection Evaluation
 **Inquiry**: *Is there a real evaluation of duplicate detection (pHash-only vs embedding-based; precision/recall/F1; how the pairs were made)? Is pgvector used, or is cosine similarity computed in Python? If any result comes from augmentation-derived pairs, label it optimistic.*
 
-#### a) Evaluation Methodology & Pair Generation
+#### a) Evaluation Methodology & Pair Generation (Phase 8 Hardened)
 - **Script**: `ml/eval/evaluate_duplicates.py`
+- **Label**: **synthetic fixtures, augmentation positives**
 - **Pair Construction**: $N = 80$ image pairs total:
-  - **40 Positive Pairs**: Created by taking fixture defect images and applying smartphone simulation augmentations:
-    - Random crop (5% to 12% frame shift)
-    - Brightness and contrast shifts ($\pm 15\%$)
-    - Handheld camera angle rotation ($-4^\circ$ to $+4^\circ$)
-  - **40 Negative Pairs**: Randomly sampled pairs from distinct defect categories.
-- **Honest Labeling**: **OPTIMISTIC SYNTHETIC EVALUATION**. Augmentation pairs simulate camera shake and lighting variation but do not capture complex physical occlusion, seasonal changes, or radically different viewing azimuths.
+  - **40 Positive Pairs**: Created by taking fixture defect images and applying smartphone simulation augmentations (random crop, brightness shift, handheld rotation).
+  - **20 Easy Negative Pairs**: Sampled pairs from distinct defect categories.
+  - **20 Hard Negative Pairs**: Same defect category (e.g. pothole vs. different pothole), simulated within 200m spatial proximity, but with **different physical defect images**.
+- **Validation / Held-Out Test Split**:
+  - Stratified 50/50 split ($N=40$ validation, $N=40$ test).
+  - Optimal F1 thresholds were selected **exclusively on the validation set**:
+    - pHash optimal $\tau = 0.58$ (Val F1: 0.769)
+    - OpenCLIP optimal $\tau = 0.90$ (Val F1: 0.800)
 
-#### b) Actual Live Re-Run Output
+#### b) Actual Live Re-Run Output on Held-Out Test Set
 - **Command**: `python ml/eval/evaluate_duplicates.py`
-- **Results (95% Bootstrap Confidence Intervals)**:
-  - **Method A: Bitwise pHash ($\tau \ge 0.75$)**:
-    - Precision: **70.0%** (95% CI: [47.4%, 88.9%])
-    - Recall: **35.0%** (95% CI: [20.0%, 51.1%])
-    - F1-Score: **0.467** (95% CI: [0.292, 0.605])
-    - Mean Comparison Time: 28.92 ms
-  - **Method B: OpenCLIP ViT-B/32 Embeddings ($\tau \ge 0.82$)**:
-    - Precision: **81.6%** (95% CI: [70.8%, 92.2%])
-    - Recall: **100.0%** (95% CI: [100.0%, 100.0%])
-    - F1-Score: **0.899** (95% CI: [0.829, 0.959])
-    - Mean Comparison Time: 370.22 ms
+- **Results on Held-Out Test Set ($N=40$, 95% Bootstrap Confidence Intervals)**:
+  - **Method A: Bitwise pHash ($\tau = 0.58$ chosen on val)**:
+    - Test Precision: **58.1%** (95% CI: [40.6%, 74.2%])
+    - Test Recall: **90.0%** (95% CI: [75.0%, 100.0%])
+    - Test F1-Score: **0.706** (95% CI: [0.542, 0.830])
+  - **Method B: OpenCLIP ViT-B/32 Embeddings ($\tau = 0.90$ chosen on val)**:
+    - Test Precision: **65.5%** (95% CI: [48.0%, 81.5%])
+    - Test Recall: **95.0%** (95% CI: [84.2%, 100.0%])
+    - Test F1-Score: **0.776** (95% CI: [0.622, 0.889])
 
 #### c) Storage & Vector Math: pgvector vs. Python
-- **Database Architecture**: `pgvector` is **NOT** used.
-- Embeddings are stored as raw JSON arrays (`Column(JSON, nullable=False)`) in the `report_embeddings` table.
-- **Similarity Computation**: Computed in **Python via NumPy dot product**:
+- **Database Architecture**: `pgvector` is **NOT** used in the current version.
+- Embeddings are stored as raw JSON arrays in the SQL database (`Report.embedding_json`).
+- **Similarity Computation**: Candidate reports within a spatial gate ($\le 50\text{m}$) are filtered in SQL (PostGIS `ST_DWithin` / SQLite Haversine), and cosine similarity is computed in **Python memory via NumPy dot product** over L2-normalized 512-dim vectors.
+- **Scale-Up Path**: Migrating to PostgreSQL `pgvector` with HNSW/IVFFlat indexing is documented as a scale-up path for deployments exceeding 10,000 active tickets.
   $$\text{sim} = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|}$$
   in `EmbeddingService.cosine_similarity()` (`backend/app/services/embedding_service.py` L23–37) following spatial radius filtering.
 - **Verdict**: **PARTIAL / OPTIMISTIC**. Accurately documented in code and data cards.
 
 ---
 
-### 2.3 Evidence Redaction (Faces & License Plates)
+### 2.3 Evidence Redaction (Faces Only; Plates Not Implemented)
 **Inquiry**: *Test the face/plate redaction on a few real, varied images (include Indian-style plates) and report detection and miss rates. Rename the feature to best-effort and state which plate styles are not covered if untested.*
 
-#### a) Live Cascade Inspection
-- **Command**:
+#### a) Bundled Face Cascade (Phase 8 Hardening)
+- **Source & License**: Bundled `haarcascade_frontalface_default.xml` from OpenCV under the 3-Clause BSD License by Intel Corporation and the OpenCV Foundation in `backend/app/ml/cascades/haarcascade_frontalface_default.xml`.
+- **Loading Mechanism**: Loaded directly from repo path rather than relying on `cv2.data.haarcascades`.
+- **Live Verification**:
   ```python
   from app.services.privacy_service import PrivacyService
-  face_casc, plate_casc = PrivacyService._get_cascades()
+  casc = PrivacyService._get_face_cascade()
+  print('Cascade loaded:', casc is not None, 'Empty:', casc.empty())
+  # Output: Cascade loaded: True Empty: False
   ```
-- **Live Output**:
-  ```text
-  Face Cascade loaded: False
-  Plate Cascade loaded: False
-  ```
-- **Root Cause**: `opencv-python-headless` does not package XML cascades in `cv2.data.haarcascades`.
-- **Miss Rate on Host**: **100%** when XML files are missing from the environment (gracefully returns `anonymized=False` without failing the upload).
+- **Automated Test**: `test_privacy_face_detection_and_redaction` in `backend/tests/test_resolution_verification.py` creates a synthetic human face pattern, executes `PrivacyService.anonymize_image()`, and asserts `faces_detected >= 1` and Gaussian blur applied.
 
-#### b) Regional License Plate Model Limitations
-- Even when XML files are manually supplied:
-  - The referenced plate cascade is `haarcascade_russian_plate_number.xml`, trained exclusively on single-line European/GOST horizontal plates.
-  - **Indian-Style Plates**: Standard two-line motorcycle plates, yellow-board commercial plates, and high-security registration plates (HSRP) with regional font formats are **completely untested and uncovered**.
-- **Action Taken**:
-  - The feature has been renamed to **"Best-Effort PII Redaction"** across `README.md`, `MODEL_CARD.md`, and `backend/app/services/privacy_service.py`.
-  - Added explicit limitation notices: *"Indian-style vehicle plates and non-frontal faces are NOT covered by default cascades."*
-- **Verdict**: **UNSUPPORTED $\to$ CORRECTED TO BEST-EFFORT**.
+#### b) Vehicle License Plate Redaction: NOT IMPLEMENTED
+- Standard OpenCV cascades only include Russian GOST single-line plates (`haarcascade_russian_plate_number.xml`), which completely fail on Indian vehicle registration plates (two-line motorcycle plates, yellow commercial boards, HSRP plates, oblique camera angles).
+- Rather than maintaining a broken or misleading plate detector, all license plate detection logic, variables, and documentation claims were **completely removed** in Phase 8.
+- Plate redaction is explicitly documented as **NOT implemented** across `README.md`, `MODEL_CARD.md`, `LIMITATIONS.md`, and `PrivacyService`.
+- **Verdict**: **VERIFIED (Faces Bundled & Tested; Plates Explicitly Not Implemented)**.
 
 ---
 

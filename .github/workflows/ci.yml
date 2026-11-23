@@ -92,8 +92,8 @@ jobs:
       - name: Run Security Audit (npm audit)
         run: npm audit --prefix frontend --audit-level=high
 
-  docker-lint:
-    name: Dockerfile & Compose Verification
+  docker-compose-test:
+    name: Docker Compose Build, Healthcheck & Seed Lifecycle
     runs-on: ubuntu-latest
 
     steps:
@@ -102,3 +102,34 @@ jobs:
 
       - name: Validate Docker Compose Configuration
         run: docker compose config
+
+      - name: Build Docker Images
+        run: docker compose build
+
+      - name: Start Services in Detached Mode
+        run: docker compose up -d
+
+      - name: Wait for Backend Health Endpoint
+        run: |
+          echo "Waiting for backend health endpoint (http://localhost:8000/api/reports/categories)..."
+          for i in {1..30}; do
+            if curl -s -f http://localhost:8000/api/reports/categories > /dev/null; then
+              echo "Backend health check passed after ${i} attempt(s)!"
+              break
+            fi
+            echo "Waiting for backend container ($i/30)..."
+            sleep 4
+          done
+          # Assert health endpoint returns HTTP 200
+          curl -f http://localhost:8000/api/reports/categories || (docker compose logs backend && exit 1)
+
+      - name: Run Seed Script in Backend Container
+        run: |
+          docker compose exec -T backend python -m app.database.seed_data
+
+      - name: Verify Running Service Containers
+        run: docker compose ps
+
+      - name: Tear Down Docker Environment
+        if: always()
+        run: docker compose down -v
