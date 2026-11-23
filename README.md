@@ -28,7 +28,7 @@ Rapidly expanding metropolitan regions face severe infrastructure monitoring cha
 
 To maintain scientific integrity and realistic operational expectations, this repository explicitly states:
 1. **No Validated Accuracy on Real Citizen Photos**: The vision pipeline operates as an uncalibrated zero-shot prototype (OpenCLIP ViT-B/32) alongside classical texture heuristics; it has **not** been benchmarked or certified on a large-scale, field-collected dataset of real citizen grievance photos.
-2. **No Real Municipal Data**: All seeded complaints, citizen user records, and departmental assignments are synthetic demo fixtures generated for prototype demonstration.
+2. **No Real Municipal Data**: All 140 seeded complaints, citizen user records, and departmental assignments are synthetic demo fixtures generated for prototype demonstration.
 3. **Advisory & Decision-Support Only**: Automated AI classifications, severity ratings, and duplicate detections are non-binding advisory suggestions designed to assist municipal engineers; the platform does not make autonomous administrative, legal, or contractor payment decisions.
 4. **No Physical Metric Measurements**: The platform does **not** claim to measure physical pothole depth in centimeters or compute cubic volumetric repair estimates from single, uncalibrated 2D smartphone photographs.
 5. **Best-Effort PII Redaction**: Face blurring uses the bundled OpenCV Haar cascade on a best-effort demonstration basis; license plate redaction is **not implemented** (standard cascades fail completely on Indian registration plates). See [`LIMITATIONS.md`](LIMITATIONS.md).
@@ -95,6 +95,21 @@ Image embeddings (512-dimensional L2-normalized float vectors from OpenCLIP ViT-
 
 **Scale-Up Path (`pgvector`)**: For large-scale production deployments ($>10{,}000$ active reports), deserializing JSON embeddings into Python memory becomes a latency and memory bottleneck. Migrating embedding storage to PostgreSQL's native `pgvector` extension with HNSW or IVFFlat vector indexing is the established architectural scale-up path.
 
+### 2.2 Two-Tier Spatial Gating: Pre-Filter vs. Category Matching Radii
+To maintain high database query performance while adhering to physical defect boundaries, duplicate detection operates in two distinct stages:
+1. **Coarse SQL Spatial Pre-Filter ($\le 50\text{m}$ / Bounding Box)**: Applied at the database query level to retrieve candidate active neighbor reports within the vicinity, avoiding full-table scans.
+2. **Fine-Grained Per-Category Duplicate Thresholds**: Once candidate records pass the 50m pre-filter, each pair is strictly evaluated against its specific physical category radius ($15\text{m} - 35\text{m}$ base $+ 10\text{m}$ urban GPS accuracy margin):
+   - *Pothole*: $20\text{m} + 10\text{m} = 30\text{m}$ max
+   - *Road Damage*: $25\text{m} + 10\text{m} = 35\text{m}$ max
+   - *Garbage Overflow*: $25\text{m} + 10\text{m} = 35\text{m}$ max
+   - *Illegal Dumping*: $35\text{m} + 10\text{m} = 45\text{m}$ max
+   - *Water Leakage*: $30\text{m} + 10\text{m} = 40\text{m}$ max
+   - *Blocked Drain*: $25\text{m} + 10\text{m} = 35\text{m}$ max
+   - *Broken Streetlight*: $35\text{m} + 10\text{m} = 45\text{m}$ max
+   - *Damaged Infrastructure*: $25\text{m} + 10\text{m} = 35\text{m}$ max
+
+A candidate report at 38m passes the 50m database spatial pre-filter but is **rejected** by the 30m pothole matching threshold. 50m is the coarse database pre-filter, whereas the per-category radius is the authoritative duplicate matching threshold.
+
 ---
 
 ## 🔬 3. Transparent AI & Machine Learning Engineering
@@ -108,12 +123,12 @@ Every performance metric cited in CivicPulse AI is produced by reproducible eval
 
 | Metric / Evaluation Target | Value | Reproducible Script | Significance |
 | :--- | :--- | :--- | :--- |
-| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.955$ under $\pm 20\%$ jitter | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
-| **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 65.5%, Recall: 95.0%, F1: 0.776 | `ml/eval/evaluate_duplicates.py` | Labeled *synthetic fixtures, augmentation positives*. Evaluated on held-out test ($N=40$) with hard negatives; $\tau = 0.90$ tuned on val ($N=40$). |
-| **Visual Duplicate Detection (Bitwise pHash)** | Precision: 58.1%, Recall: 90.0%, F1: 0.706 | `ml/eval/evaluate_duplicates.py` | Fast texture hash baseline ($<30\text{ms}$ comparison); $\tau = 0.58$ tuned on val ($N=40$). |
-| **Spatial Proximity Gate** | $\le 50\text{m}$ Great-Circle Distance | `DuplicateService` | Category-specific spatial threshold (expert-set, not learned). |
+| **Priority Rank Stability (Kendall's $\tau$)** | $\tau \ge 0.962$ under $\pm 20\%$ jitter ($N=140$ reports) | `ml/eval/priority_sensitivity.py` | Confirms priority ordering is robust against weight jitter; shows stability, not correctness. |
+| **Visual Duplicate Detection (OpenCLIP ViT-B/32)** | Precision: 65.5%, Recall: 95.0%, F1: 0.776 (95% CI: [0.622, 0.889]) | `ml/eval/evaluate_duplicates.py` | Labeled *synthetic fixtures, augmentation positives*. Evaluated on held-out test ($N=40$) with hard negatives; $\tau = 0.90$ tuned on val ($N=40$). |
+| **Visual Duplicate Detection (Bitwise pHash)** | Precision: 58.1%, Recall: 90.0%, F1: 0.706 (95% CI: [0.542, 0.830]) | `ml/eval/evaluate_duplicates.py` | Validation threshold $\tau = 0.58$ is near chance (~0.5); CLIP vs pHash CIs overlap, so no superiority claim. |
+| **Spatial Proximity Gate** | $\le 50\text{m}$ Pre-filter; $15\text{m}-35\text{m}$ Category Threshold | `DuplicateService` | Coarse database retrieval pre-filter vs. fine-grained physical matching gate. |
 | **Continuous Age Escalation** | $P_{\text{age}} = 100(1 - e^{-\Delta t/72})$ | `PriorityService` | Reaches ~50% at 50h, preventing low-priority ticket starvation (expert-set). |
-| **Overall Backend Statement Coverage** | **79% Statement Coverage (71 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
+| **Overall Backend Statement Coverage** | **79% Statement Coverage (72 Passed, 1 Skipped)** | `pytest backend/tests` | 77% to 95% statement coverage across core services. |
 | **Frontend Component Test Coverage** | **85.1% Statement Coverage (5 Passed)** | `npm test --prefix frontend` | Vitest + JSDOM testing on critical components. |
 | **Security Audits (`pip-audit`, `npm audit`)** | **0 Known Vulnerabilities** | `docs/SECURITY_AUDIT.md` | OWASP API Security Top 10 compliance verified. |
 
@@ -240,8 +255,9 @@ To train customized road defect detection models using public datasets:
 
 ## ⚖️ 8. Ethics, Privacy & Data Provenance
 
-- **Data Privacy**: All citizen uploads undergo automated best-effort frontal face blurring via bundled OpenCV cascade (`haarcascade_frontalface_default.xml`, BSD-3-Clause). Vehicle license plate redaction is explicitly **not implemented**. All EXIF GPS coordinates and camera device serials are stripped prior to storage.
-- **Data Provenance**: All seeded records are tagged with `is_synthetic=True`. The user interface displays a permanent demonstration disclaimer banner.
+- **Data Privacy & Image Storage**: All citizen uploads are stored in `backend/uploads/` (mounted at `/app/uploads` in Docker) under UUID filenames. Images undergo automated best-effort frontal face blurring via bundled OpenCV cascade (`haarcascade_frontalface_default.xml`, BSD-3-Clause) with in-place file overwrite. The server **does not retain or serve unredacted original images**. EXIF GPS coordinates and camera device serials are completely stripped prior to storage.
+- **License Plate Limitation**: Vehicle license plate redaction is explicitly **not implemented**; any plates captured in citizen photos remain unredacted in the stored and served image files. Missed non-frontal faces also remain unblurred.
+- **Data Provenance**: All **140 seeded records** are tagged with `is_synthetic=True`. The user interface displays a permanent demonstration disclaimer banner.
 - **OpenStreetMap Data**: Road geometries and POIs are used under the **Open Database License (ODbL)**.
 - **Human Governance**: Automated AI models produce explainable suggestions to support municipal officers; citizen input is authoritative and original complaints are never automatically deleted or merged.
 

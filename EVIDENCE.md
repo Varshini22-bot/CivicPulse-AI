@@ -13,8 +13,8 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **CV Classification** | Multi-model zero-shot categorization & abstention | `python ml/eval/evaluate_ood.py` | Heuristic: 0.0% (100% abstain); Detector: 0.0% (100% abstain); CLIP: 10.0% (0% abstain) | **VERIFIED** (Fixture Smoke Test) |
 | **Inference Latency** | End-to-end CPU wall-clock latency per 640x480 image | `python ml/eval/abstention_analysis.py` | Heuristic p50: 16.44 ms (p95: 22.31 ms); CLIP p50: 770.78 ms (p95: 943.37 ms) | **VERIFIED** |
-| **Duplicate Benchmark** | Bitwise pHash vs. OpenCLIP semantic similarity | `python ml/eval/evaluate_duplicates.py` | pHash Test F1: 0.706; OpenCLIP Test F1: 0.776 on held-out test ($N=40$) with hard negatives | **VERIFIED** (Synthetic fixtures, augmentation positives) |
-| **Priority Sensitivity** | Monte Carlo rank stability under $\pm 20\%$ weight jitter | `python ml/eval/priority_sensitivity.py` | Kendall's $\tau = 0.955$ (95% CI: [0.917, 0.983]) across $M=200$ trials | **VERIFIED** (Shows stability, not correctness) |
+| **Duplicate Benchmark** | Bitwise pHash vs. OpenCLIP semantic similarity | `python ml/eval/evaluate_duplicates.py` | pHash Test F1: 0.706; OpenCLIP Test F1: 0.776 on held-out test ($N=40$); CIs overlap, no superiority claim | **VERIFIED** (Synthetic fixtures, augmentation positives) |
+| **Priority Sensitivity** | Monte Carlo rank stability under $\pm 20\%$ weight jitter | `python ml/eval/priority_sensitivity.py` | Kendall's $\tau = 0.962$ (95% CI: [0.934, 0.981]) across $M=200$ trials on $N=140$ seeded reports | **VERIFIED** (Shows stability, not correctness) |
 | **PII Redaction** | Frontal face blurring; license plates not implemented | `PrivacyService.anonymize_image` | Bundled OpenCV Haar cascade loaded from repo; plates explicitly not implemented | **VERIFIED** (Faces Bundled; Plates Not Implemented) |
 | **Public Tracking** | Unguessable, rate-limited, privacy-redacted tracking | `pytest backend/tests/test_website_ux.py` | 8-char base32 ($>40$ bits entropy), 20/min limit, lat/lon/address redacted | **VERIFIED** |
 | **Test Coverage** | Full repository automated test coverage | `pytest --cov=backend/app` & `npm test -- --coverage` | Backend: 79% overall (71 passed, 1 skipped); Frontend: 85.1% statements | **VERIFIED** |
@@ -105,14 +105,20 @@
     - Test Recall: **95.0%** (95% CI: [84.2%, 100.0%])
     - Test F1-Score: **0.776** (95% CI: [0.622, 0.889])
 
-#### c) Storage & Vector Math: pgvector vs. Python
+#### c) Statistical Caveat & Two-Tier Spatial Gating
+- **No Superiority Claim**: The validation threshold for pHash (0.58) is near chance agreement (~0.5) and likely reflects visual similarity among synthetic fixtures; furthermore, the 95% bootstrap confidence intervals for OpenCLIP ([0.622, 0.889]) and pHash ([0.542, 0.830]) overlap substantially, so no superiority claim is made.
+- **Two-Tier Spatial Gating (Pre-Filter vs. Category Matching Radii)**:
+  - **Coarse SQL Spatial Pre-Filter ($\le 50\text{m}$ / Bounding Box)**: Applied at the SQL database query level to retrieve candidate active neighbor reports without scanning the entire database.
+  - **Fine-Grained Per-Category Matching Threshold ($15\text{m} - 35\text{m} + 10\text{m}$ GPS margin)**: Once candidates pass the 50m pre-filter, each pair is strictly evaluated against its specific category radius (e.g. pothole $\le 20\text{m} + 10\text{m} = 30\text{m}$ max; broken streetlight $\le 35\text{m} + 10\text{m} = 45\text{m}$ max). A candidate at 38m will pass the 50m spatial pre-filter but be **rejected** by the pothole matching threshold. 50m is the coarse database retrieval pre-filter, while the per-category radius is the authoritative duplicate matching threshold.
+
+#### d) Storage & Vector Math: pgvector vs. Python
 - **Database Architecture**: `pgvector` is **NOT** used in the current version.
 - Embeddings are stored as raw JSON arrays in the SQL database (`Report.embedding_json`).
 - **Similarity Computation**: Candidate reports within a spatial gate ($\le 50\text{m}$) are filtered in SQL (PostGIS `ST_DWithin` / SQLite Haversine), and cosine similarity is computed in **Python memory via NumPy dot product** over L2-normalized 512-dim vectors.
 - **Scale-Up Path**: Migrating to PostgreSQL `pgvector` with HNSW/IVFFlat indexing is documented as a scale-up path for deployments exceeding 10,000 active tickets.
   $$\text{sim} = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|}$$
   in `EmbeddingService.cosine_similarity()` (`backend/app/services/embedding_service.py` L23–37) following spatial radius filtering.
-- **Verdict**: **PARTIAL / OPTIMISTIC**. Accurately documented in code and data cards.
+- **Verdict**: **VERIFIED** (Accurately documented in code and data cards).
 
 ---
 
@@ -130,6 +136,11 @@
   # Output: Cascade loaded: True Empty: False
   ```
 - **Automated Test**: `test_privacy_face_detection_and_redaction` in `backend/tests/test_resolution_verification.py` creates a synthetic human face pattern, executes `PrivacyService.anonymize_image()`, and asserts `faces_detected >= 1` and Gaussian blur applied.
+- **Image Storage & Unredacted Original Lifecycle**:
+  - Uploaded citizen photos are stored locally on the server filesystem in `backend/uploads/` (or mounted volume `/app/uploads` in Docker) under UUID filenames.
+  - EXIF/GPS metadata is stripped in memory on ingestion.
+  - `PrivacyService.anonymize_image()` performs an in-place overwrite of the file on disk with Gaussian-blurred face pixels ($30\sigma$); **unredacted original image files are NOT retained or served**.
+  - If a face is missed by the detector (e.g. non-frontal angles, occlusions), or because vehicle license plate redaction is NOT implemented, unredacted faces or license plates remain in the stored and served image.
 
 #### b) Vehicle License Plate Redaction: NOT IMPLEMENTED
 - Standard OpenCV cascades only include Russian GOST single-line plates (`haarcascade_russian_plate_number.xml`), which completely fail on Indian vehicle registration plates (two-line motorcycle plates, yellow commercial boards, HSRP plates, oblique camera angles).
@@ -144,7 +155,7 @@
 
 #### a) Experimental Setup
 - **Command**: `python ml/eval/priority_sensitivity.py`
-- **Dataset**: $N = 100$ reports (30 seeded database tickets + 70 simulated reports spanning dynamic severity, safety, location, community, and age parameters).
+- **Dataset**: $N = 140$ reports (all 140 seeded database tickets: 135 base civic issues + 5 duplicate cluster reports).
 - **Perturbation Methodology**:
   - Baseline weights: $w = [0.35, 0.25, 0.15, 0.15, 0.10]$
   - Applied uniform random jitter at levels $\varepsilon \in \{\pm 5\%, \pm 10\%, \pm 15\%, \pm 20\%\}$ across $M = 200$ Monte Carlo trials per level, renormalizing weights to sum to 1.0.
@@ -153,10 +164,10 @@
 ```text
   Jitter Level | Mean Kendall Tau | 95% CI          | Min Tau | Rank Stability
   ----------------------------------------------------------------------------
-  +- 5% Jitter  |            0.990 | [0.979, 0.996] |   0.975 | Very High
-  +-10% Jitter  |            0.978 | [0.963, 0.995] |   0.955 | Very High
-  +-15% Jitter  |            0.969 | [0.942, 0.989] |   0.934 | Very High
-  +-20% Jitter  |            0.955 | [0.917, 0.983] |   0.881 | Very High
+  +- 5% Jitter  |            0.989 | [0.982, 0.995] |   0.980 | Very High
+  +-10% Jitter  |            0.980 | [0.970, 0.992] |   0.968 | Very High
+  +-15% Jitter  |            0.972 | [0.952, 0.987] |   0.943 | Very High
+  +-20% Jitter  |            0.962 | [0.934, 0.981] |   0.929 | Very High
 ```
 
 #### c) Mandatory Scientific Disclosure
