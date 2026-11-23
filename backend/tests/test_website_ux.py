@@ -86,8 +86,9 @@ def test_presubmission_duplicate_scanner(test_client: TestClient, db_session: Se
     if not cat:
         cat = db_session.query(Category).first()
 
-    unique_lat = round(12.70000 + random.uniform(0.01, 0.09), 5)
-    unique_lon = round(77.40000 + random.uniform(0.01, 0.09), 5)
+    # Choose a unique coordinate area away from existing fixtures to isolate the test report
+    unique_lat = round(12.10000 + random.uniform(0.01, 0.40), 5)
+    unique_lon = round(77.10000 + random.uniform(0.01, 0.40), 5)
     report = Report(
         tracking_number=f"CP-NEAR-{uuid.uuid4().hex[:6].upper()}",
         title="Nearby Road Pothole",

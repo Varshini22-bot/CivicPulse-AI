@@ -126,7 +126,7 @@ def get_dispatch_route(
     return RoutingService.optimize_dispatch_route(
         reports=reports,
         start_latitude=depot_lat,
-        start_longitude=depon_lon if (depot_lon := depot_lon) else None
+        start_longitude=depot_lon
     )
 
 @router.get("/nearby")

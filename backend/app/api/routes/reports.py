@@ -322,10 +322,11 @@ def serialize_public_report_track(r: Report) -> dict:
     """
     audits = []
     for a in r.audit_logs:
+        user_name = getattr(a, "user_name", None) or "Municipal Engineer"
         audits.append({
             "id": a.id,
             "action": a.action,
-            "user_name": a.user_name or "Municipal Engineer",
+            "user_name": user_name,
             "notes": a.notes,
             "previous_state": a.previous_state,
             "new_state": a.new_state,
